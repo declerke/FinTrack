@@ -3,12 +3,22 @@ from concurrent.futures import ThreadPoolExecutor
 from conftest import create_portfolio, register_and_login
 
 
-def post_trade(client, headers, portfolio_id, *, action, quantity, price, trade_date):
+def post_trade(
+    client,
+    headers,
+    portfolio_id,
+    *,
+    action,
+    quantity,
+    price,
+    trade_date,
+    instrument="SCOM",
+):
     return client.post(
         f"/api/portfolios/{portfolio_id}/transactions",
         headers=headers,
         json={
-            "instrument": "SCOM",
+            "instrument": instrument,
             "type": action,
             "quantity": quantity,
             "unit_price": price,
@@ -189,8 +199,137 @@ def test_trade_delete_returns_empty_204_and_empty_summary(client) -> None:
 
     assert deleted.status_code == 204
     assert deleted.content == b""
-    assert summary.json()["positions"] == []
-    assert summary.json()["total_invested"] == "0.00"
+    assert summary.json() == {
+        "portfolio_id": portfolio["id"],
+        "base_currency": "KES",
+        "positions": [],
+        "total_invested": "0.00",
+        "total_value": "0.00",
+    }
+
+
+def test_summary_allocation_uses_unrounded_values_for_equal_positions(client) -> None:
+    headers = register_and_login(client)
+    portfolio = create_portfolio(client, headers)
+    for instrument in ("SCOM", "KCB"):
+        response = post_trade(
+            client,
+            headers,
+            portfolio["id"],
+            action="BUY",
+            quantity="1",
+            price="0.005",
+            trade_date="2026-01-01",
+            instrument=instrument,
+        )
+        assert response.status_code == 201
+
+    summary = client.get(f"/api/portfolios/{portfolio['id']}/summary", headers=headers)
+    body = summary.json()
+
+    assert summary.status_code == 200
+    assert body["total_invested"] == "0.01"
+    assert body["total_value"] == "0.01"
+    assert {
+        position["instrument"]: position["total_value"] for position in body["positions"]
+    } == {"SCOM": "0.01", "KCB": "0.01"}
+    assert {
+        position["instrument"]: position["allocation_percentage"]
+        for position in body["positions"]
+    } == {"SCOM": 50.0, "KCB": 50.0}
+
+
+def test_summary_allocation_uses_unrounded_values_for_unequal_positions(client) -> None:
+    headers = register_and_login(client)
+    portfolio = create_portfolio(client, headers)
+    for instrument, quantity in (("SCOM", "1"), ("KCB", "3")):
+        response = post_trade(
+            client,
+            headers,
+            portfolio["id"],
+            action="BUY",
+            quantity=quantity,
+            price="0.005",
+            trade_date="2026-01-01",
+            instrument=instrument,
+        )
+        assert response.status_code == 201
+
+    summary = client.get(f"/api/portfolios/{portfolio['id']}/summary", headers=headers)
+    body = summary.json()
+
+    assert summary.status_code == 200
+    assert body["total_invested"] == "0.02"
+    assert body["total_value"] == "0.02"
+    assert {
+        position["instrument"]: position["total_value"] for position in body["positions"]
+    } == {"SCOM": "0.01", "KCB": "0.02"}
+    assert {
+        position["instrument"]: position["allocation_percentage"]
+        for position in body["positions"]
+    } == {"SCOM": 25.0, "KCB": 75.0}
+
+
+def test_documented_trade_example_is_accepted_by_api(client) -> None:
+    from datetime import datetime
+
+    headers = register_and_login(client)
+    portfolio = create_portfolio(client, headers)
+    response = client.post(
+        f"/api/portfolios/{portfolio['id']}/transactions",
+        headers=headers,
+        json={
+            "instrument": "SCOM",
+            "type": "BUY",
+            "quantity": "12.5",
+            "unit_price": "101.25",
+            "trade_date": "2026-01-02",
+        },
+    )
+    body = response.json()
+
+    assert response.status_code == 201
+    assert body == {
+        "id": 1,
+        "portfolio_id": portfolio["id"],
+        "instrument": "SCOM",
+        "type": "BUY",
+        "quantity": "12.500000",
+        "unit_price": "101.250000",
+        "trade_date": "2026-01-02",
+        "created_at": body["created_at"],
+    }
+    assert datetime.fromisoformat(body["created_at"]).tzinfo is not None
+
+
+def test_numeric_trade_amount_is_rejected_with_normalized_validation_envelope(client) -> None:
+    headers = register_and_login(client)
+    portfolio = create_portfolio(client, headers)
+    response = client.post(
+        f"/api/portfolios/{portfolio['id']}/transactions",
+        headers=headers,
+        json={
+            "instrument": "SCOM",
+            "type": "BUY",
+            "quantity": 12.5,
+            "unit_price": "101.25",
+            "trade_date": "2026-01-02",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "error": {
+            "code": "validation_error",
+            "message": "Request validation failed; check the highlighted fields.",
+            "details": [
+                {
+                    "field": "body.quantity",
+                    "message": "Value error, must be provided as a decimal string",
+                }
+            ],
+        }
+    }
 
 
 def test_concurrent_sells_allow_only_one_affordable_write(client) -> None:
