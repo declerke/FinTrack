@@ -15,7 +15,12 @@ def database_url_validator():
     return validator
 
 
-def test_test_database_guard_rejects_application_and_non_postgresql_urls() -> None:
+def test_test_database_guard_rejects_application_and_non_postgresql_urls(monkeypatch) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql+psycopg://tester:secret@localhost:5432/fintrack",
+    )
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-signing-key-long-enough-for-this-test")
     validator = database_url_validator()
 
     with pytest.raises(ValueError):

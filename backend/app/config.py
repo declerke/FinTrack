@@ -1,3 +1,4 @@
+import ipaddress
 from pathlib import Path
 
 from pydantic import Field, field_validator
@@ -34,6 +35,27 @@ def get_settings() -> Settings:
     return Settings()
 
 
+def _normalized_database_host(host: str | None) -> str | None:
+    if host is None:
+        return None
+
+    normalized = host.rstrip(".").casefold()
+    if normalized == "localhost":
+        return "loopback"
+
+    try:
+        if ipaddress.ip_address(normalized).is_loopback:
+            return "loopback"
+    except ValueError:
+        pass
+    return normalized
+
+
+def _database_identity(url: URL) -> tuple[str | None, int, str | None]:
+    port = 5432 if url.port is None else url.port
+    return _normalized_database_host(url.host), port, url.database
+
+
 def validate_test_database_url(raw_url: str) -> URL:
     try:
         url = make_url(raw_url)
@@ -46,4 +68,12 @@ def validate_test_database_url(raw_url: str) -> URL:
         raise ValueError("TEST_DATABASE_URL must target the dedicated fintrack_test database")
     if (url.host or "").lower() not in ALLOWED_TEST_HOSTS:
         raise ValueError("TEST_DATABASE_URL must target a loopback host")
+
+    try:
+        application_url = make_url(get_settings().database_url)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("DATABASE_URL must be a valid application database URL") from exc
+
+    if _database_identity(url) == _database_identity(application_url):
+        raise ValueError("TEST_DATABASE_URL must not target the application database")
     return url

@@ -1,6 +1,7 @@
 import os
 from collections.abc import Iterator
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine
@@ -25,14 +26,33 @@ def db_engine(test_database_url: URL) -> Iterator[Any]:
     from app import models  # noqa: F401
     from app.db import Base
 
-    engine = create_engine(test_database_url, pool_pre_ping=True)
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+    schema_name = f"test_{uuid4().hex}"
+    bootstrap_engine = create_engine(test_database_url, pool_pre_ping=True)
+    schema_created = False
+    schema_engine: Any | None = None
     try:
-        yield engine
+        with bootstrap_engine.begin() as connection:
+            connection.exec_driver_sql(f'CREATE SCHEMA "{schema_name}"')
+        schema_created = True
+
+        schema_engine = create_engine(
+            test_database_url,
+            pool_pre_ping=True,
+            connect_args={"options": f"-c search_path={schema_name}"},
+        )
+        Base.metadata.create_all(schema_engine)
+        yield schema_engine
     finally:
-        Base.metadata.drop_all(engine)
-        engine.dispose()
+        try:
+            if schema_engine is not None:
+                schema_engine.dispose()
+        finally:
+            try:
+                if schema_created:
+                    with bootstrap_engine.begin() as connection:
+                        connection.exec_driver_sql(f'DROP SCHEMA "{schema_name}" CASCADE')
+            finally:
+                bootstrap_engine.dispose()
 
 
 @pytest.fixture
