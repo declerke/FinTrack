@@ -540,6 +540,18 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TransactionCreate"
+              },
+              "examples": {
+                "valid_trade": {
+                  "summary": "Valid trade",
+                  "value": {
+                    "instrument": "SCOM",
+                    "type": "BUY",
+                    "quantity": "12.5",
+                    "unit_price": "101.25",
+                    "trade_date": "2026-01-02"
+                  }
+                }
               }
             }
           }
@@ -1028,6 +1040,10 @@
           "total_value": {
             "type": "string",
             "title": "Total Value"
+          },
+          "allocation_percentage": {
+            "type": "number",
+            "title": "Allocation Percentage"
           }
         },
         "type": "object",
@@ -1037,7 +1053,8 @@
           "average_cost",
           "total_invested",
           "valuation_price",
-          "total_value"
+          "total_value",
+          "allocation_percentage"
         ],
         "title": "PositionSummary"
       },
@@ -1059,28 +1076,14 @@
             "title": "Type"
           },
           "quantity": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string"
-              }
-            ],
+            "type": "string",
             "title": "Quantity",
             "decimal_places": 6,
             "gt": 0,
             "max_digits": 18
           },
           "unit_price": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string"
-              }
-            ],
+            "type": "string",
             "title": "Unit Price",
             "decimal_places": 6,
             "gt": 0,

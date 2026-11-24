@@ -1,6 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal, localcontext
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Body, Depends, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -99,6 +99,14 @@ def _summary(session: Session, portfolio: Portfolio) -> PortfolioSummary:
             (position.total_invested for position in positions.values()), Decimal("0")
         )
         total_value = sum((position.total_value for position in positions.values()), Decimal("0"))
+        allocation_percentages = {
+            position.instrument: (
+                float(position.total_value / total_value * Decimal("100"))
+                if total_value
+                else 0.0
+            )
+            for position in positions.values()
+        }
     position_rows = [
         PositionSummary(
             instrument=position.instrument,
@@ -107,6 +115,7 @@ def _summary(session: Session, portfolio: Portfolio) -> PortfolioSummary:
             total_invested=_fixed(position.total_invested, CENT),
             valuation_price=_fixed(position.valuation_price, SIX_PLACES),
             total_value=_fixed(position.total_value, CENT),
+            allocation_percentage=allocation_percentages[position.instrument],
         )
         for position in positions.values()
     ]
@@ -137,7 +146,20 @@ def list_transactions(
 )
 def create_transaction(
     portfolio_id: int,
-    payload: TransactionCreate,
+    payload: TransactionCreate = Body(
+        openapi_examples={
+            "valid_trade": {
+                "summary": "Valid trade",
+                "value": {
+                    "instrument": "SCOM",
+                    "type": "BUY",
+                    "quantity": "12.5",
+                    "unit_price": "101.25",
+                    "trade_date": "2026-01-02",
+                },
+            }
+        }
+    ),
     session: Session = Depends(get_session),
     analyst: Analyst = Depends(get_current_analyst),
 ) -> TransactionResponse:

@@ -1,6 +1,5 @@
 from sqlalchemy import Numeric
 
-
 TRADE_REQUEST_EXAMPLE = {
     "instrument": "SCOM",
     "type": "BUY",

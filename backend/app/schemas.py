@@ -53,7 +53,7 @@ def _decimal_string(value: object) -> Decimal:
 
 PositiveAmount = Annotated[
     Decimal,
-    BeforeValidator(_decimal_string),
+    BeforeValidator(_decimal_string, json_schema_input_type=str),
     Field(gt=0, max_digits=18, decimal_places=6),
 ]
 Username = Annotated[str, StringConstraints(min_length=3, max_length=64, pattern=r"^[a-z0-9_.-]+$")]
@@ -148,6 +148,7 @@ class PositionSummary(BaseModel):
     total_invested: str
     valuation_price: str
     total_value: str
+    allocation_percentage: float
 
 
 class PortfolioSummary(BaseModel):
