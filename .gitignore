@@ -1,0 +1,29 @@
+# Local configuration and private project notes
+.env
+.env.*
+!.env.example
+projectsummary.md
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+.vite/
+coverage/
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local runtime output
+*.log
