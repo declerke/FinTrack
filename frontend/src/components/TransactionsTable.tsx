@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Transaction } from '../types';
 import { formatCurrency, formatDate, formatQuantity } from '../format';
+import { compareDecimalStrings, multiplyDecimalStrings } from '../decimal';
 
 interface TransactionsTableProps {
   transactions: Transaction[];
@@ -12,8 +13,8 @@ interface TransactionsTableProps {
 type SortField = 'date' | 'amount';
 type SortDirection = 'ascending' | 'descending';
 
-function grossAmount(transaction: Transaction): number {
-  return Number(transaction.quantity) * Number(transaction.unit_price);
+function grossAmount(transaction: Transaction): string {
+  return multiplyDecimalStrings(transaction.quantity, transaction.unit_price);
 }
 
 export function TransactionsTable({ transactions, currency, pendingId, onDelete }: TransactionsTableProps) {
@@ -33,7 +34,7 @@ export function TransactionsTable({ transactions, currency, pendingId, onDelete 
           ? left.trade_date.localeCompare(right.trade_date)
             || left.created_at.localeCompare(right.created_at)
             || left.id - right.id
-          : grossAmount(left) - grossAmount(right)
+          : compareDecimalStrings(grossAmount(left), grossAmount(right))
             || left.trade_date.localeCompare(right.trade_date)
             || left.id - right.id;
         return sortDirection === 'ascending' ? order : -order;

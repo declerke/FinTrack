@@ -57,6 +57,28 @@ def test_register_login_hashes_password_and_returns_public_fields(client, sessio
     assert rejected_login.json()["error"]["code"] == "invalid_credentials"
 
 
+def test_login_token_uses_one_hour_hs256_lifetime(client) -> None:
+    registration = client.post(
+        "/api/auth/register",
+        json={"username": "token-owner", "password": "analyst-password-123"},
+    )
+    response = client.post(
+        "/api/auth/login",
+        json={"username": "token-owner", "password": "analyst-password-123"},
+    )
+    assert registration.status_code == 201
+    assert response.status_code == 200
+
+    token = response.json()["access_token"]
+    header = jwt.get_unverified_header(token)
+    claims = jwt.decode(
+        token,
+        config.get_settings().jwt_secret_key,
+        algorithms=["HS256"],
+    )
+    assert header["alg"] == "HS256"
+    assert claims["exp"] - claims["iat"] == 3600
+
 def test_duplicate_registration_and_protected_endpoint_errors_are_normalized(client) -> None:
     headers = register_and_login(client)
     duplicate = client.post(

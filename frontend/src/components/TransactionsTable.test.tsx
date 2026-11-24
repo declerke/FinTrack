@@ -26,6 +26,42 @@ describe('TransactionsTable', () => {
     expect(screen.getByText('No trades match these filters.')).toBeVisible();
   });
 
+  it('renders large decimal trade values without losing precision', () => {
+    const highValueTrade = {
+      ...transactions[0],
+      quantity: '1000000030.617285',
+      unit_price: '99999.617284',
+    };
+    render(<TransactionsTable transactions={[highValueTrade]} currency="KES" onDelete={vi.fn()} pendingId={null} />);
+    expect(screen.getByText(/99,999,620,345,716\.78/)).toBeVisible();
+  });
+
+  it('sorts maximum-sized decimal trade values exactly', async () => {
+    const user = userEvent.setup();
+    const highTrade = {
+      ...transactions[0],
+      id: 4,
+      instrument: 'HIGH',
+      quantity: '999999999999.999999',
+      unit_price: '999999999999.999999',
+      trade_date: '2026-01-01',
+    };
+    const lowTrade = {
+      ...transactions[0],
+      id: 5,
+      instrument: 'LOW',
+      quantity: '999999999999.999999',
+      unit_price: '999999999999.999998',
+      trade_date: '2026-01-02',
+    };
+    render(<TransactionsTable transactions={[highTrade, lowTrade]} currency="KES" onDelete={vi.fn()} pendingId={null} />);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Sort transactions' }), 'amount');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Sort order' }), 'ascending');
+    const body = within(screen.getByRole('table', { name: 'Transactions' })).getAllByRole('rowgroup')[1];
+    const symbols = within(body).getAllByRole('row').map((row) => within(row).getByText(/HIGH|LOW/).textContent);
+    expect(symbols).toEqual(['LOW', 'HIGH']);
+  });
+
   it('sorts transaction rows by numeric amount rather than string order', async () => {
     const user = userEvent.setup();
     render(<TransactionsTable transactions={transactions} currency="KES" onDelete={vi.fn()} pendingId={null} />);

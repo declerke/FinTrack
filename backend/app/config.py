@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 
@@ -11,13 +11,17 @@ ALLOWED_TEST_HOSTS = {"localhost", "127.0.0.1", "::1"}
 class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://fintrack:local-only-change-me@localhost:5432/fintrack"
     test_database_url: str | None = None
-    jwt_secret_key: str = Field(
-        default="local-development-only-replace-this-secret-before-hosting",
-        min_length=32,
-    )
+    jwt_secret_key: str = Field(min_length=32)
     cors_origins: list[str] = ["http://localhost:5173"]
     demo_username: str | None = None
     demo_password: str | None = None
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def reject_known_signing_key_placeholders(cls, value: str) -> str:
+        if value.casefold().startswith(("local-development-only-", "replace-with-")):
+            raise ValueError("JWT_SECRET_KEY must be a private random value")
+        return value
 
     model_config = SettingsConfigDict(
         env_file=REPOSITORY_ROOT / ".env",

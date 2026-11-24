@@ -36,7 +36,7 @@ The browser calls the FastAPI API. PostgreSQL stores analysts, portfolios, and o
 - Node.js 22.23.5, recorded in frontend/.nvmrc
 - Docker Desktop with Docker Compose for the local PostgreSQL 16 databases
 
-From the repository root, create a private environment file and replace the local placeholders with private values. Use an unpredictable JWT_SECRET_KEY and DEMO_PASSWORD; do not commit .env.
+From the repository root, create a private environment file and replace the local placeholders with private values. Use an unpredictable JWT_SECRET_KEY of at least 32 characters and a private DEMO_PASSWORD; do not commit .env. The app has no built-in signing key and refuses to start when JWT_SECRET_KEY is missing or too short.
 
     Copy-Item .env.example .env
     # Edit .env before starting services.
@@ -90,7 +90,7 @@ The connection string above matches the placeholder in .env.example; if you chan
     npm test -- --run
     npm run build
 
-The committed schema snapshot is backend/docs/openapi.json. Check that it matches the current API with:
+The committed schema snapshot is docs/openapi.json. Check that it matches the current API with:
 
     Set-Location backend
     uv run --locked python export_openapi.py --check
@@ -112,7 +112,7 @@ Desktop portfolio ledger:
 ## Project layout
 
     backend/                  FastAPI API, SQLAlchemy models, migration, tests
-    backend/docs/openapi.json  Exported API schema
+    docs/openapi.json            Exported API schema
     frontend/                 React, TypeScript, Vite app and tests
     docs/screenshots/          Browser-captured desktop and mobile evidence
     compose.yaml               Local PostgreSQL and isolated test databases

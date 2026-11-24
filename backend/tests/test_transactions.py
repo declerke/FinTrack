@@ -220,4 +220,70 @@ def test_concurrent_sells_allow_only_one_affordable_write(client) -> None:
     with ThreadPoolExecutor(max_workers=2) as executor:
         statuses = sorted(executor.map(lambda _: sell(), range(2)))
 
+    history = client.get(f"/api/portfolios/{portfolio['id']}/transactions", headers=headers)
+    summary = client.get(f"/api/portfolios/{portfolio['id']}/summary", headers=headers)
+
     assert statuses == [201, 409]
+    assert len(history.json()) == 2
+    assert summary.json()["positions"][0]["net_quantity"] == "4.000000"
+    assert summary.json()["total_invested"] == "400.00"
+
+
+def test_summary_serializes_totals_beyond_default_decimal_precision(
+    client, session_factory
+) -> None:
+    from datetime import date
+    from decimal import Decimal
+
+    from app.models import Transaction
+
+    headers = register_and_login(client)
+    portfolio = create_portfolio(client, headers)
+    quantity_and_price = Decimal("999999999999.999999")
+    with session_factory() as session:
+        session.add_all(
+            Transaction(
+                portfolio_id=portfolio["id"],
+                instrument=f"SYM{position_number:04d}",
+                type="BUY",
+                quantity=quantity_and_price,
+                unit_price=quantity_and_price,
+                trade_date=date(2026, 1, 1),
+            )
+            for position_number in range(1000)
+        )
+        session.commit()
+
+    summary = client.get(f"/api/portfolios/{portfolio['id']}/summary", headers=headers)
+
+    assert summary.status_code == 200
+    assert summary.json()["total_value"] == "999999999999999998000000000.00"
+    assert len(summary.json()["positions"]) == 1000
+
+
+def test_fixed_serializes_values_beyond_default_decimal_precision() -> None:
+    from decimal import Decimal
+
+    from app.routes.transactions import CENT, _fixed
+
+    large_total = Decimal("999999999999999998000000000.000000001")
+    assert _fixed(large_total, CENT) == "999999999999999998000000000.00"
+
+
+def test_summary_rounds_half_cent_values_up(client) -> None:
+    headers = register_and_login(client)
+    portfolio = create_portfolio(client, headers)
+    trade = post_trade(
+        client,
+        headers,
+        portfolio["id"],
+        action="BUY",
+        quantity="1",
+        price="1.005",
+        trade_date="2026-01-01",
+    )
+    summary = client.get(f"/api/portfolios/{portfolio['id']}/summary", headers=headers)
+
+    assert trade.status_code == 201
+    assert summary.json()["total_invested"] == "1.01"
+    assert summary.json()["total_value"] == "1.01"

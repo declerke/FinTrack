@@ -83,7 +83,12 @@ def _transaction_response(row: Transaction) -> TransactionResponse:
 
 
 def _fixed(value: Decimal, places: Decimal) -> str:
-    return str(value.quantize(places, rounding=ROUND_HALF_UP))
+    integer_digits = max(1, value.copy_abs().adjusted() + 1) if value else 1
+    fraction_digits = max(0, -places.as_tuple().exponent)
+    required_precision = integer_digits + fraction_digits + 1
+    with localcontext() as context:
+        context.prec = max(context.prec, required_precision)
+        return str(value.quantize(places, rounding=ROUND_HALF_UP))
 
 
 def _summary(session: Session, portfolio: Portfolio) -> PortfolioSummary:
