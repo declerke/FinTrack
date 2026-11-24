@@ -47,6 +47,7 @@ export interface PositionSummary {
   total_invested: string;
   valuation_price: string;
   total_value: string;
+  allocation_percentage: number;
 }
 
 export interface PortfolioSummary {

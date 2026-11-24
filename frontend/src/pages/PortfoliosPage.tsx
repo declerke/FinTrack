@@ -105,6 +105,10 @@ export function PortfoliosPage() {
     setNotice('');
     try {
       await api.deletePortfolio(portfolio.id);
+      if (editingId === portfolio.id) {
+        setEditingId(null);
+        setForm(emptyForm);
+      }
       setNotice(`${portfolio.name} deleted.`);
       await loadPortfolios();
       window.requestAnimationFrame(() => listHeading.current?.focus());

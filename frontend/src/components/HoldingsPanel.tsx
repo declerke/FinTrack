@@ -1,16 +1,9 @@
-import type { PortfolioSummary, PositionSummary } from '../types';
+import type { PortfolioSummary } from '../types';
 import { formatCurrency, formatQuantity } from '../format';
 
 interface HoldingsPanelProps {
   summary: PortfolioSummary;
   currency: string;
-}
-
-function allocationPercent(position: PositionSummary, summary: PortfolioSummary): number {
-  const total = Number(summary.total_value);
-  const value = Number(position.total_value);
-  if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(value)) return 0;
-  return Math.min(100, Math.max(0, (value / total) * 100));
 }
 
 export function HoldingsPanel({ summary, currency }: HoldingsPanelProps) {
@@ -52,7 +45,7 @@ export function HoldingsPanel({ summary, currency }: HoldingsPanelProps) {
             </figcaption>
             <div className="allocation-list">
               {summary.positions.map((position) => {
-                const percent = allocationPercent(position, summary);
+                const percent = position.allocation_percentage;
                 return (
                   <div className="allocation-row" key={position.instrument}>
                     <span className="allocation-symbol">{position.instrument}</span>
@@ -62,7 +55,7 @@ export function HoldingsPanel({ summary, currency }: HoldingsPanelProps) {
                       aria-label={`${position.instrument} allocation`}
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-valuenow={Number(percent.toFixed(1))}
+                      aria-valuenow={percent}
                       aria-valuetext={`${percent.toFixed(1)} percent, ${formatCurrency(position.total_value, currency)}`}
                     >
                       <span style={{ width: `${percent}%` }} />
