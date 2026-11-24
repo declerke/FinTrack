@@ -2,7 +2,7 @@
 
 FinTrack is a portfolio ledger for investment analysts. It records trades and derives open positions, weighted-average cost basis, and estimated value from the transaction history. All demo data is fictional. It does not provide investment advice or live market prices.
 
-> **Candidate status:** local review build. No public repository, pull request, or hosted app/API has been published.
+> **Candidate status:** source candidate for independent review. No hosted app/API is available yet.
 
 ## What it does
 
