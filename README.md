@@ -34,11 +34,12 @@ Give an analyst a verifiable workflow from sign-in through portfolio setup, trad
 
 ## 📊 Results and Verification
 
-- Backend: 36 tests passed against the isolated local `fintrack_test` database.
-- Frontend: 12 tests passed across 5 files; ESLint and the production TypeScript/Vite build passed.
-- `docs/openapi.json` matches the current FastAPI schema.
-- Local browser review covered portfolio CRUD, trade entry, oversell recovery with retained form values, exact large-decimal display, sorting, filtering, and 375-pixel layout.
-- The clean-checkout setup time has not been measured. The under-ten-minute assessment target remains unverified.
+- Backend: 52 tests passed against isolated PostgreSQL fixture schemas in the dedicated test database.
+- Frontend: 20 tests passed across 8 files; ESLint and the production TypeScript/Vite build passed.
+- `docs/openapi.json` matches the current FastAPI schema. Trade quantity and unit price are documented as decimal strings with a valid request example.
+- Test isolation rejects the configured application database before engine creation; each test creates and drops only its own UUID-named schema.
+- A clean local worktree took about 0:38 from checkout through API and SPA startup with warm dependency caches. The run used Python 3.12.14, uv 0.12.9, Node 22.23.5, npm 11.17.0, and a PostgreSQL service that was already running.
+- Docker Compose provisioning was not run because Docker was unavailable. The measured time excludes database provisioning and cold dependency downloads, so the full under-ten-minute path remains unverified.
 - No load or performance benchmark has been run.
 
 ---
@@ -130,7 +131,7 @@ uv run --locked python export_openapi.py --check
 
 ## ✅ Checks
 
-Backend checks use the separate PostgreSQL test service on port 5433. The test fixture clears that database, so do not point `TEST_DATABASE_URL` at data you need. Run these commands after configuring `.env` as above:
+Backend checks use the separate PostgreSQL test service on port 5433. The configuration guard rejects the application database before creating an engine. Each test creates and drops only a UUID-named schema in `fintrack_test`; keep `TEST_DATABASE_URL` on a dedicated disposable database. Run these commands after configuring `.env` as above:
 
 ```powershell
 Set-Location backend
