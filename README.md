@@ -1,79 +1,123 @@
-# 📈 FinTrack: A clear portfolio ledger for investment analysts
+# FinTrack
 
-**FinTrack is a production-grade portfolio-tracking assessment project that bridges the gap between recorded investment trades and an explainable holdings summary.**
+FinTrack is a portfolio ledger for investment analysts. It records trades and derives open positions, weighted-average cost basis, and estimated value from the transaction history. All demo data is fictional. It does not provide investment advice or live market prices.
 
-## 🎯 Project Goal
+> **Candidate status:** local review build. No public repository, pull request, or hosted app/API has been published.
 
-Give an investment analyst a small, understandable workflow from login to portfolio management, trade recording, and a verified holdings summary. All account and portfolio data in the demo are fictional.
+## What it does
 
-## 🧬 System Architecture
+- Register and sign in to a personal analyst account.
+- Create, edit, and delete KES or USD portfolios, with server-side ownership checks.
+- Record BUY and SELL trades with decimal-safe validation and rollback on ledger conflicts.
+- View server-calculated holdings, allocation bars, and a transaction table with symbol/type filters and sorting.
+- Review pending, success, empty, and error states; destructive changes require confirmation.
 
-```mermaid
-flowchart LR
-  Analyst[Analyst] --> SPA[React and Vite SPA]
-  SPA --> API[FastAPI JSON API]
-  API --> DB[(PostgreSQL ledger)]
-  API --> Calc[Decimal holdings calculator]
-  Calc --> SPA
-```
+## Architecture
 
-1. **React and Vite** provide the responsive browser interface.
-2. **FastAPI and Pydantic** validate authenticated portfolio and trade requests.
-3. **SQLAlchemy and PostgreSQL** persist owner-scoped portfolios and an ordered transaction ledger.
-4. **Decimal ledger replay** derives open positions, remaining cost basis, and estimated value from recorded trades.
+    Analyst --> React and Vite SPA --> FastAPI JSON API --> PostgreSQL
+                                           |
+                                           +--> Decimal ledger replay --> holdings summary
 
-## 🛠️ Technical Stack
+The browser calls the FastAPI API. PostgreSQL stores analysts, portfolios, and ordered transactions. One backend service replays the ledger and returns holdings and totals; the browser does not calculate financial totals.
 
-| Layer | Tool | Version |
+## Ledger rules
+
+- Monetary and unit values use positive finite decimal inputs, stored as NUMERIC(18,6) and serialized as decimal strings.
+- Trades are replayed by trade date, creation time, then ID.
+- BUY trades update moving weighted-average cost. SELL trades reduce open units and basis at that average cost. A sale that exceeds available units, including after a backdated change, returns a conflict and rolls back.
+- Estimated value uses each instrument's latest recorded trade price multiplied by open units.
+- The ledger excludes FX conversion, fees, taxes, realized gains, and market-data feeds. Prices are estimates from recorded trades.
+
+## Local setup (Windows PowerShell)
+
+### Prerequisites
+
+- Python 3.12 and uv
+- Node.js 22.23.5, recorded in frontend/.nvmrc
+- Docker Desktop with Docker Compose for the local PostgreSQL 16 databases
+
+From the repository root, create a private environment file and replace the local placeholders with private values. Use an unpredictable JWT_SECRET_KEY and DEMO_PASSWORD; do not commit .env.
+
+    Copy-Item .env.example .env
+    # Edit .env before starting services.
+    docker compose up -d db test-db
+
+Start the API in one terminal:
+
+    Set-Location backend
+    uv sync --locked
+    uv run --locked alembic upgrade head
+    uv run --locked python -m app.seed
+    uv run --locked uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+Start the web app in a second terminal:
+
+    Set-Location frontend
+    npm ci
+    npm run dev
+
+Open http://localhost:5173. The API serves Swagger UI at http://localhost:8000/docs and OpenAPI JSON at http://localhost:8000/openapi.json. The fictional local demo login is the DEMO_USERNAME and DEMO_PASSWORD you set in .env.
+
+Stop the databases with docker compose down. The named local database volume remains on disk so the next run can reuse it.
+
+## API routes
+
+| Method | Route | Purpose |
 |:--|:--|:--|
-| API | FastAPI, Pydantic, SQLAlchemy | Locked in `backend/pyproject.toml` |
-| Database | PostgreSQL | 16 |
-| Web | React, Vite, TypeScript | Locked in `frontend/package-lock.json` |
-| API checks | pytest, HTTPX, Ruff | Locked in `backend/uv.lock` |
-| UI checks | Vitest, React Testing Library | Locked in `frontend/package-lock.json` |
+| POST | /api/auth/register | Create an analyst account |
+| POST | /api/auth/login | Return a one-hour HS256 bearer token |
+| GET, POST | /api/portfolios | List or create the signed-in analyst's portfolios |
+| GET, PUT, DELETE | /api/portfolios/{id} | Read, update, or delete an owned portfolio |
+| GET, POST | /api/portfolios/{id}/transactions | Read or record trades in an owned portfolio |
+| DELETE | /api/transactions/{id} | Delete an owned trade and recalculate the ledger |
+| GET | /api/portfolios/{id}/summary | Return server-calculated totals, positions, and allocation data |
 
-## 📊 Performance & Results
+API errors use the shared shape {"error":{"code":"...","message":"..."}}. Validation failures return 422, ledger conflicts return 409, and missing or foreign-owned resources return 404. The browser keeps its bearer token in memory, so refreshing the page requires signing in again. The login flow returns to a protected detail URL requested before sign-in.
 
-Verification results, clean-install time, and the final worked-ledger values will be recorded here after the checks run. FinTrack does not claim live market prices or investment advice.
+## Checks
 
-## 📸 Screenshots
+Backend checks use the separate PostgreSQL test service on port 5433. The test database is cleared by the test fixture, so do not point TEST_DATABASE_URL at a database containing data you need.
 
-Actual desktop portfolio list/detail and mobile detail screenshots will be added under `docs/screenshots/` after browser verification.
+    Set-Location backend
+    uv run --locked ruff check .
+    $env:TEST_DATABASE_URL = "postgresql+psycopg://fintrack:change-me-locally@localhost:5433/fintrack_test"
+    uv run --locked pytest
+    Remove-Item Env:TEST_DATABASE_URL
 
-## 🧾 Ledger Assumptions
+The connection string above matches the placeholder in .env.example; if you change the local PostgreSQL password, update it here too. Frontend checks run from frontend:
 
-| Metric | Definition |
-|:--|:--|
-| Total invested | Remaining weighted-average cost basis of open units |
-| Estimated value | Open units multiplied by the latest recorded trade price for that instrument |
-| Price/currency scope | Trades use the portfolio currency; no FX, fees, taxes, market feed, or realized gains |
+    npm run lint
+    npm test -- --run
+    npm run build
 
-## 🧠 Key Design Decisions
+The committed schema snapshot is backend/docs/openapi.json. Check that it matches the current API with:
 
-- **Ledger is the source of holdings:** one backend Decimal service replays transactions and validates every proposed mutation.
-- **Prices are estimates:** the latest recorded trade price is used so the calculation stays explicit and reproducible.
-- **Authentication is short-lived:** the browser keeps the one-hour bearer token in memory; a refresh requires signing in again.
-- **Ownership is enforced on the server:** the authenticated analyst scopes every portfolio and trade operation.
+    Set-Location backend
+    uv run --locked python export_openapi.py --check
 
-## 📂 Project Structure
+## Screenshots
 
-The complete, checked tree will be listed after implementation so generated and ignored files are identified accurately.
+Desktop portfolio list:
 
-## ⚙️ Installation & Setup
+![FinTrack portfolio list on desktop](docs/screenshots/desktop-portfolios.png)
 
-See the verified local setup commands and public service URLs below after the clean-install and deployment checks. Copy `.env.example` to `.env` and replace local-only placeholders before starting services.
+Desktop portfolio ledger:
 
-## 🔌 API and Verification
+![FinTrack portfolio detail on desktop](docs/screenshots/desktop-portfolio-detail.png)
 
-The API contract, migration and seed commands, lint/test/build commands, and exported OpenAPI schema will be documented after verification. Swagger is served at `/docs` when the API runs.
+375-pixel mobile portfolio ledger:
 
-## 🎓 Skills Demonstrated
+![FinTrack portfolio detail at 375 pixels](docs/screenshots/mobile-portfolio-detail-375.png)
 
-- **API development:** authentication, request validation, ownership checks, and consistent errors.
-- **Financial calculations:** Decimal ledger replay, weighted-average basis, and mutation rollback.
-- **Frontend engineering:** accessible responsive forms, request states, sorting, filtering, and an API-backed allocation view.
-- **Engineering workflow:** migrations, lockfiles, focused tests, review evidence, and deployment verification.
+## Project layout
 
-## 🤖 AI Assistance
+    backend/                  FastAPI API, SQLAlchemy models, migration, tests
+    backend/docs/openapi.json  Exported API schema
+    frontend/                 React, TypeScript, Vite app and tests
+    docs/screenshots/          Browser-captured desktop and mobile evidence
+    compose.yaml               Local PostgreSQL and isolated test databases
+    .env.example               Placeholder-only local configuration
 
-OpenAI Codex assisted with planning, implementation, and verification. Ian owns the assessment decisions and final submission.
+## AI assistance
+
+OpenAI Codex assisted with planning, implementation, and verification. Ian owns the assessment decisions, independent review, and final submission.
