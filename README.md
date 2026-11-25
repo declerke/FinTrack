@@ -210,15 +210,30 @@ The safety guard compares the test connection to the configured application data
 
 ### API routes
 
+#### Try the live API in Swagger
+
+1. Open [Swagger UI](https://fintrack-api-bs43.onrender.com/docs). Expand **POST /api/auth/login**, select **Try it out**, enter the demo credentials supplied in the submission email, and select **Execute**.
+2. Copy the returned `access_token`. Select **Authorize**, paste the token into **HTTPBearer**, then select **Authorize** and **Close**. Swagger adds the bearer prefix automatically.
+3. Execute **GET /api/portfolios** and copy the numeric ID of the Retirement portfolio. Use it in **GET /api/portfolios/{portfolio_id}/transactions** to see its ledger and **GET /api/portfolios/{portfolio_id}/summary** to inspect open units, cost, estimated value and allocation.
+4. To test writes, create a separate portfolio with **POST /api/portfolios**. Under **POST /api/portfolios/{portfolio_id}/transactions**, try this fictional trade against the new ID:
+
+   ```json
+   {"instrument":"SCOM","type":"BUY","quantity":"10","unit_price":"100.00","trade_date":"2026-11-25"}
+   ```
+
+   A successful create returns **201**. Read the summary again: the position has 10 units, a cost basis of 1,000.00 and an estimated value of 1,000.00 in the portfolio currency. A sale of 11 units returns **409** and leaves the ledger unchanged. Delete only the portfolio created for this walkthrough. A successful deletion returns **204**.
+
+The [machine-readable OpenAPI contract](https://fintrack-api-bs43.onrender.com/openapi.json) covers 11 operations across seven paths. The committed snapshot is [docs/openapi.json](docs/openapi.json). Business endpoints require a valid token; an unauthenticated request returns **401**.
+
 | Method | Route | Purpose |
 |:--|:--|:--|
 | POST | `/api/auth/register` | Create an analyst account |
 | POST | `/api/auth/login` | Return a one-hour HS256 bearer token |
 | GET, POST | `/api/portfolios` | List or create the signed-in analyst's portfolios |
-| GET, PUT, DELETE | `/api/portfolios/{id}` | Read, update, or delete an owned portfolio |
-| GET, POST | `/api/portfolios/{id}/transactions` | Read or record trades in an owned portfolio |
-| DELETE | `/api/transactions/{id}` | Delete an owned trade and recalculate the ledger |
-| GET | `/api/portfolios/{id}/summary` | Return server-calculated totals, holdings, and allocations |
+| GET, PUT, DELETE | `/api/portfolios/{portfolio_id}` | Read, update, or delete an owned portfolio |
+| GET, POST | `/api/portfolios/{portfolio_id}/transactions` | Read or record trades in an owned portfolio |
+| DELETE | `/api/transactions/{transaction_id}` | Delete an owned trade and recalculate the ledger |
+| GET | `/api/portfolios/{portfolio_id}/summary` | Return server-calculated totals, holdings, and allocations |
 
 API errors use `{"error":{"code":"...","message":"..."}}`. Validation failures return 422, ledger conflicts return 409, and missing or foreign-owned resources return 404. Trade writes validate positive finite decimal values; the database stores numeric values and the API accepts decimal strings.
 
