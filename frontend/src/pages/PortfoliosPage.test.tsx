@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import '../styles.css';
 import type { Portfolio } from '../types';
 import { PortfoliosPage } from './PortfoliosPage';
 
@@ -38,7 +39,7 @@ function renderPortfoliosPage() {
   );
 }
 
-describe('PortfoliosPage deletion while editing', () => {
+describe('PortfoliosPage deletion and long-name layout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     currentPortfolios = [alphaPortfolio, betaPortfolio];
@@ -99,5 +100,32 @@ describe('PortfoliosPage deletion while editing', () => {
     expect(nameInput).toHaveValue('Unsaved alpha edit');
     expect(screen.queryByRole('link', { name: 'Beta portfolio' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Alpha portfolio' })).toBeVisible();
+  });
+
+  it('allows full 100-character portfolio and client names to wrap', async () => {
+    const user = userEvent.setup();
+    const longPortfolioName = 'P'.repeat(100);
+    const longClientName = 'C'.repeat(100);
+    currentPortfolios = [{
+      ...alphaPortfolio,
+      name: longPortfolioName,
+      client_name: longClientName,
+    }];
+
+    renderPortfoliosPage();
+
+    const nameLink = await screen.findByRole('link', { name: longPortfolioName });
+    const clientName = screen.getByText(longClientName);
+
+    expect(nameLink).toHaveTextContent(longPortfolioName);
+    expect(nameLink).toHaveStyle({ minWidth: '0px', overflowWrap: 'anywhere' });
+    expect(clientName).toHaveTextContent(longClientName);
+    expect(clientName).toHaveStyle({ overflowWrap: 'anywhere' });
+
+    await user.click(screen.getByRole('button', { name: `Delete ${longPortfolioName}` }));
+
+    const deletionNotice = await screen.findByRole('status');
+    expect(deletionNotice).toHaveTextContent(`${longPortfolioName} deleted.`);
+    expect(deletionNotice).toHaveStyle({ overflowWrap: 'anywhere' });
   });
 });

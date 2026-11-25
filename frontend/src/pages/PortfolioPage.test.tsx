@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import '../styles.css';
 import type { Portfolio, PortfolioSummary, Transaction } from '../types';
 import { PortfolioPage } from './PortfolioPage';
 
@@ -61,6 +62,38 @@ function renderPortfolioPage() {
     </MemoryRouter>,
   );
 }
+
+describe('PortfolioPage long-name layout', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    apiMock.getPortfolio.mockResolvedValue(portfolio);
+    apiMock.getTransactions.mockResolvedValue([]);
+    apiMock.getSummary.mockResolvedValue(emptySummary);
+  });
+
+  it('keeps 100-character portfolio and client names intact and wrap-enabled', async () => {
+    const longPortfolioName = 'P'.repeat(100);
+    const longClientName = 'C'.repeat(100);
+    apiMock.getPortfolio.mockResolvedValue({
+      ...portfolio,
+      name: longPortfolioName,
+      client_name: longClientName,
+    });
+    renderPortfolioPage();
+
+    const heading = await screen.findByRole('heading', { name: longPortfolioName });
+    const headingContainer = heading.parentElement;
+    const detailHeading = heading.closest('.detail-heading');
+    const clientName = detailHeading?.querySelector('.eyebrow');
+
+    expect(heading).toHaveTextContent(longPortfolioName);
+    expect(heading).toHaveStyle({ overflowWrap: 'anywhere' });
+    expect(headingContainer).not.toBeNull();
+    expect(headingContainer).toHaveStyle({ width: 'min(100%, 760px)', minWidth: '0px' });
+    expect(clientName).toHaveTextContent(longClientName);
+    expect(clientName).toHaveStyle({ overflowWrap: 'anywhere' });
+  });
+});
 
 describe('PortfolioPage trade deletion', () => {
   beforeEach(() => {
