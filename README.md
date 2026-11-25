@@ -53,13 +53,13 @@ Frontend versions are from `frontend/package-lock.json`; Python package versions
 
 ## 📊 Performance & Results
 
-- Frontend: **28 tests across 8 files** passed; ESLint and the production TypeScript/Vite build passed at the current local candidate.
+- Frontend at `bd4eff5`: **28 tests across 8 files** passed; ESLint and the production TypeScript/Vite build passed (33 modules; 296.18 kB JavaScript, 91.12 kB gzip).
 - Portfolio detail regression tests prove an older save refresh cannot restore a deleted ledger row, a late delete cannot steal focus from another portfolio, a save completing after navigation cannot publish success in the new portfolio, and a failed refresh cannot announce refreshed totals. Route changes also clear stale pending state.
-- Backend: **52 tests passed** against disposable PostgreSQL during the earlier verification at code SHA `2eb058bcdaa060b450c468f2923612080b69eef2`. Backend code is unchanged in the current frontend correction; the backend suite was not rerun for this UI-only change.
+- Backend at `bd4eff5`: **52 tests passed** against a separate disposable PostgreSQL database on port 55485; Ruff and the OpenAPI export check also passed.
 - At a 375px document client width, captured with a 390px Playwright window and a stable 15px scrollbar gutter, both list and detail document widths measured **375/375px** (`clientWidth` / `scrollWidth`) with 100-character portfolio and client names. On the list, the name/client block measured x=32.8–342.4; Open, Edit, and Delete ended at x=149.2, 206.6, and 280.0. On detail, title/client content measured x=16–359.2, the KES badge ended at x=76.8, and Record Trade ended at x=341.4.
 - `docs/openapi.json` matches the FastAPI schema; the trade quantity and unit price use decimal-string inputs and a valid request example.
-- Test database isolation rejects the application database before engine creation. Database-backed tests target a separate disposable database and create/drop only UUID-owned schemas.
-- The latest recorded clean-worktree setup took about **38 seconds** on candidate `ea1d0fc`, with warm dependency caches and PostgreSQL already running. It used Python 3.12.14, uv 0.12.9, Node 22.23.5, and npm 11.17.0. Docker was unavailable; the timing excludes database provisioning and cold dependency downloads. The full clean setup remains unverified.
+- Test database isolation rejects the application database before engine creation or DDL; the focused guard test passed. Integration tests used only the disposable database on port 55485, never the running preview database on port 55432.
+- In a clean worktree at `bd4eff5`, `npm ci`, `uv sync --locked`, migration, and seed took **17.34 seconds** with warm npm/uv caches. It used Python 3.12.14, uv 0.12.9, Node 22.23.5, npm 11.17.0, and PostgreSQL 16.16. Docker Desktop was unavailable; the disposable database was already provisioned and running on port 55485, so database provisioning, process startup, and cold dependency downloads are excluded. Full cold setup remains unverified.
 - No load or performance benchmark has been run.
 
 ## 📸 Application Screenshots
