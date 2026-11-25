@@ -251,5 +251,3 @@ API errors use `{"error":{"code":"...","message":"..."}}`. Validation failures r
 - **Data engineering:** PostgreSQL migrations, isolated test schemas, Decimal accounting, rollback, and concurrent ledger writes.
 - **Frontend engineering:** Responsive React development, accessible labels and focus behavior, route-aware async state, and genuine client-side sorting/filtering.
 - **Delivery quality:** Regression testing, linting, OpenAPI export, production bundling, and evidence-backed documentation.
-
-I used OpenAI Codex to assist with planning, implementation and testing.
