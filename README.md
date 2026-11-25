@@ -35,10 +35,11 @@ Give an analyst a verifiable workflow from sign-in through portfolio setup, trad
 ## 📊 Results and Verification
 
 - Backend: 52 tests passed against isolated PostgreSQL fixture schemas in the dedicated test database.
-- Frontend: 20 tests passed across 8 files; ESLint and the production TypeScript/Vite build passed.
+- Frontend: 22 tests passed across 8 files; ESLint and the production TypeScript/Vite build passed.
+- At a 375px Chromium viewport with 100-character portfolio and client names, the list and detail pages measured clientWidth and scrollWidth of 375/375px; the list actions, detail currency badge, and Record Trade action remained within the viewport.
 - `docs/openapi.json` matches the current FastAPI schema. Trade quantity and unit price are documented as decimal strings with a valid request example.
 - Test isolation rejects the configured application database before engine creation; each test creates and drops only its own UUID-named schema.
-- A clean local worktree took about 0:38 from checkout through API and SPA startup with warm dependency caches. The run used Python 3.12.14, uv 0.12.9, Node 22.23.5, npm 11.17.0, and a PostgreSQL service that was already running.
+- On the earlier candidate ea1d0fc, a clean local worktree took about 0:38 from checkout through API and SPA startup with warm dependency caches. The run used Python 3.12.14, uv 0.12.9, Node 22.23.5, npm 11.17.0, and a PostgreSQL service that was already running.
 - Docker Compose provisioning was not run because Docker was unavailable. The measured time excludes database provisioning and cold dependency downloads, so the full under-ten-minute path remains unverified.
 - No load or performance benchmark has been run.
 
