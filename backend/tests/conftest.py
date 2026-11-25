@@ -10,15 +10,22 @@ from sqlalchemy.orm import Session, sessionmaker
 from starlette.testclient import TestClient
 
 
+def require_test_database_url() -> str:
+    raw_url = os.getenv("TEST_DATABASE_URL")
+    if raw_url:
+        return raw_url
+
+    message = "requires isolated PostgreSQL TEST_DATABASE_URL"
+    if os.getenv("FINTRACK_REQUIRE_TEST_DATABASE") == "1":
+        pytest.fail(f"{message}; CI requires database-backed tests", pytrace=False)
+    pytest.skip(message)
+
+
 @pytest.fixture
 def test_database_url() -> URL:
-    raw_url = os.getenv("TEST_DATABASE_URL")
-    if not raw_url:
-        pytest.skip("requires isolated PostgreSQL TEST_DATABASE_URL")
-
     from app.config import validate_test_database_url
 
-    return validate_test_database_url(raw_url)
+    return validate_test_database_url(require_test_database_url())
 
 
 @pytest.fixture
@@ -27,7 +34,16 @@ def db_engine(test_database_url: URL) -> Iterator[Any]:
     from app.db import Base
 
     schema_name = f"test_{uuid4().hex}"
-    bootstrap_engine = create_engine(test_database_url, pool_pre_ping=True)
+    test_host = (test_database_url.host or "").casefold()
+    test_host_address = "127.0.0.1" if test_host == "localhost" else test_host
+    test_database_port = test_database_url.port
+    if test_database_port is None:
+        raise ValueError("TEST_DATABASE_URL must specify an explicit port")
+    bootstrap_engine = create_engine(
+        test_database_url,
+        pool_pre_ping=True,
+        connect_args={"hostaddr": test_host_address, "port": test_database_port},
+    )
     schema_created = False
     schema_engine: Any | None = None
     try:
@@ -38,7 +54,11 @@ def db_engine(test_database_url: URL) -> Iterator[Any]:
         schema_engine = create_engine(
             test_database_url,
             pool_pre_ping=True,
-            connect_args={"options": f"-c search_path={schema_name}"},
+            connect_args={
+                "hostaddr": test_host_address,
+                "options": f"-c search_path={schema_name}",
+                "port": test_database_port,
+            },
         )
         Base.metadata.create_all(schema_engine)
         yield schema_engine

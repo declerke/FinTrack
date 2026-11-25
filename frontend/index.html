@@ -3,6 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (() => {
+        let saved;
+        try {
+          saved = window.localStorage.getItem('fintrack-theme');
+        } catch {
+          // Use the system preference when storage is unavailable.
+        }
+        const systemTheme = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.dataset.theme = saved === 'dark' || saved === 'light' ? saved : systemTheme;
+      })();
+    </script>
+    <style>
+      :root { color-scheme: light; background: #f3f7fa; }
+      :root[data-theme="dark"] { color-scheme: dark; background: #0c1724; }
+    </style>
     <meta name="theme-color" content="#0b1f33" />
     <meta name="description" content="A clear, ledger-based portfolio tracker for investment analysts." />
     <title>FinTrack by Finnet Technologies</title>

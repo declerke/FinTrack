@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { BrandMark } from '../components/BrandMark';
+import { ThemeToggle } from '../theme';
 
 interface AuthPageProps {
   mode: 'login' | 'register';
@@ -71,9 +72,12 @@ export function AuthPage({ mode, onAuthenticated }: AuthPageProps) {
       </section>
 
       <section className="auth-panel" aria-labelledby="auth-heading">
-        <div className="auth-brand" aria-label="FinTrack by Finnet Technologies">
-          <BrandMark />
-          <span><strong>FinTrack</strong><small>by Finnet Technologies</small></span>
+        <div className="auth-panel-header">
+          <div className="auth-brand" aria-label="FinTrack by Finnet Technologies">
+            <BrandMark />
+            <span><strong>FinTrack</strong><small>by Finnet Technologies</small></span>
+          </div>
+          <ThemeToggle />
         </div>
         <div className="auth-form-heading">
           <p className="eyebrow">Secure analyst access</p>

@@ -17,32 +17,6 @@ def _postgres_url(
     return f"{driver}://{username}@{formatted_host}{formatted_port}/{database}"
 
 
-@pytest.mark.parametrize(
-    ("application_host", "test_host"),
-    [
-        ("localhost", "127.0.0.1"),
-        ("127.0.0.1", "localhost"),
-        ("localhost", "::1"),
-        ("::1", "localhost"),
-        ("127.0.0.1", "::1"),
-        ("::1", "127.0.0.1"),
-    ],
-)
-def test_test_database_guard_rejects_application_database_through_loopback_aliases(
-    monkeypatch: pytest.MonkeyPatch,
-    application_host: str,
-    test_host: str,
-) -> None:
-    monkeypatch.setenv(
-        "DATABASE_URL",
-        _postgres_url(application_host, driver="postgresql", database="fintrack_test"),
-    )
-    monkeypatch.setenv("JWT_SECRET_KEY", "test-signing-key-long-enough-for-this-test")
-
-    with pytest.raises(ValueError, match="application database"):
-        validate_test_database_url(_postgres_url(test_host, port=5432))
-
-
 def test_test_database_guard_allows_a_distinct_application_catalog(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -57,6 +31,183 @@ def test_test_database_guard_allows_a_distinct_application_catalog(
     )
 
     assert url.database == "fintrack_test"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "host=127.0.0.1",
+        "hostaddr=127.0.0.1",
+        "port=55432",
+        "dbname=fintrack",
+        "service=remote",
+        "servicefile=%2Ftmp%2Fpostgresql.conf",
+        "sslmode=disable",
+    ],
+)
+def test_test_database_guard_rejects_query_parameters(
+    monkeypatch: pytest.MonkeyPatch,
+    query: str,
+) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        _postgres_url("localhost", driver="postgresql", port=5432, database="fintrack"),
+    )
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-signing-key-long-enough-for-this-test")
+
+    with pytest.raises(ValueError, match="must not include query parameters"):
+        validate_test_database_url(
+            _postgres_url("127.0.0.1", port=5433) + f"?{query}"
+        )
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "host=127.0.0.1",
+        "hostaddr=127.0.0.1",
+        "port=5433",
+        "dbname=fintrack_test",
+        "service=local-test",
+        "servicefile=%2Ftmp%2Fpostgresql.conf",
+    ],
+)
+def test_application_database_guard_rejects_destination_query_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+    query: str,
+) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        _postgres_url("localhost", driver="postgresql", port=5432, database="fintrack")
+        + f"?{query}",
+    )
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-signing-key-long-enough-for-this-test")
+
+    with pytest.raises(ValueError, match="can override its destination"):
+        validate_test_database_url(_postgres_url("127.0.0.1", port=5433))
+
+
+def test_application_database_guard_allows_non_destination_query_options(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        _postgres_url("localhost", driver="postgresql", port=5432, database="fintrack")
+        + "?sslmode=require",
+    )
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-signing-key-long-enough-for-this-test")
+
+    url = validate_test_database_url(_postgres_url("127.0.0.1", port=5433))
+
+    assert url.database == "fintrack_test"
+
+
+def test_application_database_guard_rejects_multiple_hosts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        _postgres_url(
+            "localhost,127.0.0.1",
+            driver="postgresql",
+            port=5432,
+            database="fintrack",
+        ),
+    )
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-signing-key-long-enough-for-this-test")
+
+    with pytest.raises(ValueError, match="can override its destination"):
+        validate_test_database_url(_postgres_url("127.0.0.1", port=5433))
+
+
+@pytest.mark.parametrize(
+    ("application_host", "application_port", "application_database"),
+    [
+        ("database.example", 5432, "fintrack_test"),
+        ("localhost", 6543, "FINTRACK_TEST"),
+    ],
+)
+def test_application_database_guard_reserves_test_catalog_name(
+    monkeypatch: pytest.MonkeyPatch,
+    application_host: str,
+    application_port: int,
+    application_database: str,
+) -> None:
+    monkeypatch.delenv("PGHOSTADDR", raising=False)
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        _postgres_url(
+            application_host,
+            driver="postgresql",
+            port=application_port,
+            database=application_database,
+        ),
+    )
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-signing-key-long-enough-for-this-test")
+
+    with pytest.raises(ValueError, match="fintrack_test catalog is reserved for tests"):
+        validate_test_database_url(_postgres_url("127.0.0.1", port=5433))
+
+
+def test_test_database_guard_rejects_reserved_preview_port(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        _postgres_url("localhost", driver="postgresql", port=5432, database="fintrack"),
+    )
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-signing-key-long-enough-for-this-test")
+
+    with pytest.raises(ValueError, match="must not use reserved preview port 55432"):
+        validate_test_database_url(_postgres_url("127.0.0.1", port=55432))
+
+
+def test_test_database_guard_requires_explicit_port(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        _postgres_url("localhost", driver="postgresql", port=5432, database="fintrack"),
+    )
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-signing-key-long-enough-for-this-test")
+
+    with pytest.raises(ValueError, match="must specify an explicit port"):
+        validate_test_database_url(_postgres_url("127.0.0.1"))
+
+
+@pytest.mark.parametrize("variable", ["PGSERVICE", "PGSERVICEFILE"])
+def test_application_database_guard_rejects_service_environment_routing(
+    monkeypatch: pytest.MonkeyPatch,
+    variable: str,
+) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        _postgres_url("localhost", driver="postgresql", port=5432, database="fintrack"),
+    )
+    monkeypatch.setenv(variable, "local-service")
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-signing-key-long-enough-for-this-test")
+
+    with pytest.raises(ValueError, match="PGSERVICE routing"):
+        validate_test_database_url(_postgres_url("127.0.0.1", port=5433))
+
+
+@pytest.mark.parametrize(
+    "application_url",
+    [
+        "postgresql+psycopg://tester@localhost:5432",
+        "postgresql+psycopg://tester@localhost:5432/",
+        "postgresql+psycopg:///fintrack_test",
+    ],
+)
+def test_application_database_guard_rejects_missing_host_or_database(
+    monkeypatch: pytest.MonkeyPatch,
+    application_url: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", application_url)
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-signing-key-long-enough-for-this-test")
+
+    with pytest.raises(ValueError, match="must specify its host and database"):
+        validate_test_database_url(_postgres_url("127.0.0.1", port=5433))
 
 
 def test_rejected_application_database_never_reaches_engine_or_ddl(
@@ -81,13 +232,23 @@ def test_rejected_application_database_never_reaches_engine_or_ddl(
     monkeypatch.setattr(MetaData, "create_all", lambda *args, **kwargs: ddl_calls.append("create"))
     monkeypatch.setattr(MetaData, "drop_all", lambda *args, **kwargs: ddl_calls.append("drop"))
 
-    with pytest.raises(ValueError, match="application database"):
+    with pytest.raises(ValueError, match="fintrack_test catalog is reserved for tests"):
         test_url = conftest.test_database_url.__wrapped__()
         next(conftest.db_engine.__wrapped__(test_url))
 
     assert engine_calls == []
     assert ddl_calls == []
 
+
+
+def test_missing_test_database_fails_when_ci_requires_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("TEST_DATABASE_URL", raising=False)
+    monkeypatch.setenv("FINTRACK_REQUIRE_TEST_DATABASE", "1")
+
+    with pytest.raises(pytest.fail.Exception, match="isolated PostgreSQL TEST_DATABASE_URL"):
+        conftest.require_test_database_url()
 
 
 def test_database_fixture_owns_and_drops_only_its_schema(
@@ -97,6 +258,8 @@ def test_database_fixture_owns_and_drops_only_its_schema(
     from sqlalchemy.schema import MetaData
 
     monkeypatch.setenv("JWT_SECRET_KEY", "test-signing-key-long-enough-for-this-test")
+    monkeypatch.setenv("PGHOSTADDR", "203.0.113.44")
+    monkeypatch.setenv("PGPORT", "55432")
     engine_calls: list[tuple[URL, dict[str, object], object]] = []
     schema_statements: list[str] = []
     metadata_create_calls: list[object] = []
@@ -142,7 +305,7 @@ def test_database_fixture_owns_and_drops_only_its_schema(
     test_url = URL.create(
         "postgresql+psycopg",
         username="tester",
-        host="localhost",
+        host="LOCALHOST",
         port=5433,
         database="fintrack_test",
     )
@@ -151,8 +314,14 @@ def test_database_fixture_owns_and_drops_only_its_schema(
         yielded_engine = next(fixture_generator)
         assert len(engine_calls) == 2
         assert yielded_engine is engine_calls[1][2]
+        assert engine_calls[0][1]["connect_args"] == {
+            "hostaddr": "127.0.0.1",
+            "port": 5433,
+        }
         assert engine_calls[1][1]["connect_args"] == {
-            "options": "-c search_path=" + schema_statements[0].split('"')[1]
+            "hostaddr": "127.0.0.1",
+            "options": "-c search_path=" + schema_statements[0].split('"')[1],
+            "port": 5433,
         }
         assert metadata_create_calls == [yielded_engine]
         assert metadata_drop_calls == []

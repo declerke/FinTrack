@@ -51,13 +51,15 @@ Frontend versions are from `frontend/package-lock.json`; Python package versions
 
 ## 📊 Performance & Results
 
-- Frontend at `bd4eff5`: **28 tests across 8 files** passed; ESLint and the production TypeScript/Vite build passed (33 modules; 296.18 kB JavaScript, 91.12 kB gzip).
+- Integrated frontend candidate: **36 tests across 9 files** passed; ESLint and the production TypeScript/Vite build passed (35 modules; 297.39 kB JavaScript, 91.53 kB gzip; 20.75 kB CSS).
 - Portfolio detail regression tests prove an older save refresh cannot restore a deleted ledger row, a late delete cannot steal focus from another portfolio, a save completing after navigation cannot publish success in the new portfolio, and a failed refresh cannot announce refreshed totals. Route changes also clear stale pending state.
-- Backend at `bd4eff5`: **52 tests passed** against a separate disposable PostgreSQL database on port 55485; Ruff and the OpenAPI export check also passed.
-- At a 375px document client width, captured with a 390px Playwright window and a stable 15px scrollbar gutter, both list and detail document widths measured **375/375px** (`clientWidth` / `scrollWidth`) with 100-character portfolio and client names.
+- Backend: **71 tests passed** against the disposable PostgreSQL 16 service on port 5433 with `DATABASE_URL` deliberately pinned to unreachable port 55439 after the effective application/test DSN preflight; Ruff and the OpenAPI export check passed while inherited `PGHOSTADDR` pointed elsewhere and `PGPORT` was set to reserved port 55432.
+- In the dark-mode Chromium run, the browser viewport was **375px** wide and its stable 15px scrollbar gutter left a **360px** document client width; the six new mobile captures are therefore 360px wide and match the rendered content. The separate earlier light-theme capture used a 390px browser window, yielding a 375px document client width and a 375px image. Both runs had no horizontal document overflow with 100-character portfolio and client names.
 - `docs/openapi.json` matches the FastAPI schema; the trade quantity and unit price use decimal-string inputs and a valid request example.
-- Test database isolation rejects the application database before engine creation or DDL; the focused guard test passed. Integration tests used only the disposable database on port 55485, never the running preview database on port 55432.
-- In a clean worktree at `bd4eff5`, `npm ci`, `uv sync --locked`, migration, and seed took **17.34 seconds** with warm npm/uv caches. It used Python 3.12.14, uv 0.12.9, Node 22.23.5, npm 11.17.0, and PostgreSQL 16.16. Docker Desktop was unavailable; the disposable database was already provisioned and running on port 55485, so database provisioning, process startup, and cold dependency downloads are excluded. Full cold setup remains unverified.
+- The [GitHub Actions workflow](.github/workflows/ci.yml) runs locked frontend and backend checks for pull requests and pushes to `main`, including Ruff, OpenAPI export, `pytest -ra` against an isolated PostgreSQL service, frontend tests, lint and production build. CI sets `FINTRACK_REQUIRE_TEST_DATABASE=1`, so a missing PostgreSQL URL fails the job instead of silently skipping database coverage; the application URL is unreachable during integration tests.
+- Dark mode applies the system preference before React mounts and follows system changes until an explicit choice is made. A manual choice is stored across navigation and reload; the accessible keyboard-operable toggle appears on sign-in and authenticated pages. Real Chromium checks at desktop and a 375px browser viewport verified the header, brand, forms, native date input, allocation chart, transaction tables, disabled controls, validation errors and empty states. At that mobile viewport, Chromium reserved 15px for its scrollbar, leaving a 360px document client width; 100-character portfolio and client names wrap on list and detail pages, `document.scrollWidth` equals `document.clientWidth`, and the 700px/740px tables scroll within their 291px containers. Rendered RGB contrast checks for sampled body, table, chart, input, action, error and disabled-control text exceeded 4.5:1 in both themes.
+- Test database isolation rejects the application database before engine creation or DDL; the focused guard test passed. Integration tests used only disposable PostgreSQL on port 5433, never the running preview database on port 55432.
+- On 25 Nov 2026, the complete README setup took **about 7 minutes** from the first documented step at 21:13 EAT to signing in and opening Retirement with its holdings visible at about 21:21 EAT. This run used Python 3.12.14, uv 0.12.9, Node 22.23.5, npm 11.17.0, Docker Desktop 29.7.2, Compose and PostgreSQL 16. The worktree, `.venv`, `node_modules`, application database and test database were fresh; npm/uv caches were warm, and the PostgreSQL 16 Alpine image had been pulled during an earlier setup retry. Compose provisioning, locked dependency installation, migration, seed, API and frontend startup, sign-in and opening Retirement were included. The measured run met the ten-minute goal under these warm-cache/image conditions; cold dependency caches and a cold image download remain unmeasured.
 - No load or performance benchmark has been run.
 
 ## 📸 Application Screenshots
@@ -75,6 +77,18 @@ The screenshots show fictional local sample data from an isolated browser review
 **375px document-width mobile portfolio detail.** Captured at 390px browser width with a stable 15px scrollbar gutter. Both 100-character names wrap and the trade form stays within the viewport.
 
 ![FinTrack portfolio detail at 375 pixels](docs/screenshots/mobile-portfolio-detail-375.png)
+
+**Dark mode sign-in.** The keyboard-focused theme control is visible before sign-in.
+
+![FinTrack dark mode on sign-in](docs/screenshots/dark-login-desktop.png)
+
+**Dark mode portfolio detail.** Retirement holdings, allocation, trade form and transaction table use the same navy and green brand colors.
+
+![FinTrack dark mode portfolio detail](docs/screenshots/dark-portfolio-detail-desktop.png)
+
+**Dark mode at a 375px browser viewport (360px captured content after the scrollbar gutter).** Both 100-character names wrap, and the empty holdings and transaction states remain within the viewport.
+
+![FinTrack dark mode with long names at 375 pixels](docs/screenshots/dark-long-name-detail-375.png)
 
 ## 📈 Domain Coverage
 
@@ -100,6 +114,8 @@ The screenshots show fictional local sample data from an isolated browser review
 
 ```text
 .
+├── .github/                  # GitHub automation
+│   └── workflows/ci.yml      # Locked frontend and backend checks
 ├── backend/                 # FastAPI service and ledger domain
 │   ├── app/                  # FastAPI routes, authentication, models, and ledger service
 │   ├── migrations/           # Alembic schema revisions
@@ -108,7 +124,7 @@ The screenshots show fictional local sample data from an isolated browser review
 │   └── uv.lock               # Locked Python dependency versions
 ├── docs/                    # API schema and visual evidence
 │   ├── openapi.json          # Exported API schema
-│   └── screenshots/          # Desktop and 375px browser evidence
+│   └── screenshots/          # Desktop and mobile browser evidence
 ├── frontend/                # React analyst workspace
 │   ├── src/                  # React pages, components, API client, and tests
 │   ├── package.json          # Frontend scripts and dependency ranges
@@ -133,10 +149,10 @@ The screenshots show fictional local sample data from an isolated browser review
 ### Start a local review environment
 
 1. From the repository root, copy `.env.example` to `.env`, then replace the local placeholders. Keep every `TEST_DATABASE_URL` occurrence aligned with the `POSTGRES_USER` and `POSTGRES_PASSWORD` values used by Compose. Set `JWT_SECRET_KEY` to a private unpredictable value of at least 32 characters and set a private fictional `DEMO_PASSWORD`. Do not commit `.env`.
-2. Start the application database and the isolated test database:
+2. Start the application database and isolated test database in a dedicated Compose project. This example uses `fintrack-review-local`; choose another unique name if it already exists:
 
    ```powershell
-   docker compose up -d db test-db
+   docker compose --project-name fintrack-review-local up -d db test-db
    ```
 
 3. Install backend dependencies, apply migrations, seed the fictional account, and start the API:
@@ -196,15 +212,38 @@ Backend checks use the separate disposable test database exposed by Compose on p
 
 ```powershell
 uv sync --locked
-$testDatabaseSetting = Get-Content -LiteralPath (Join-Path '..' '.env') | Where-Object { $_ -match '^TEST_DATABASE_URL=' } | ConvertFrom-StringData
-$env:TEST_DATABASE_URL = $testDatabaseSetting.TEST_DATABASE_URL
-uv run --locked pytest
-Remove-Item Env:TEST_DATABASE_URL
+$validatedTestDatabaseUrl = (& uv run --locked python -c "from app.config import get_settings; print(get_settings().test_database_url or '')").Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($validatedTestDatabaseUrl)) {
+  throw "Could not read TEST_DATABASE_URL with the application settings parser."
+}
+$previousDatabaseUrl = $env:DATABASE_URL
+$previousTestDatabaseUrl = $env:TEST_DATABASE_URL
+$previousRequireTestDatabase = $env:FINTRACK_REQUIRE_TEST_DATABASE
+try {
+  $env:TEST_DATABASE_URL = $validatedTestDatabaseUrl
+  $env:FINTRACK_REQUIRE_TEST_DATABASE = '1'
+  uv run --locked pytest -q tests/test_config.py::test_test_database_fixture_uses_password_safe_url
+  if ($LASTEXITCODE -ne 0) { throw "Configured test database failed its safety preflight." }
+  uv run --locked pytest -q tests/test_database_isolation.py::test_rejected_application_database_never_reaches_engine_or_ddl
+  if ($LASTEXITCODE -ne 0) { throw "Application database collision guard failed." }
+  & {
+    $env:DATABASE_URL = "postgresql+psycopg://fintrack:unused@127.0.0.1:55439/fintrack-blocked"
+    $env:TEST_DATABASE_URL = $validatedTestDatabaseUrl
+    uv run --locked pytest -ra
+  }
+  if ($LASTEXITCODE -ne 0) { throw "Backend tests failed." }
+}
+finally {
+  if ($null -eq $previousDatabaseUrl) { Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue } else { $env:DATABASE_URL = $previousDatabaseUrl }
+  if ($null -eq $previousTestDatabaseUrl) { Remove-Item Env:TEST_DATABASE_URL -ErrorAction SilentlyContinue } else { $env:TEST_DATABASE_URL = $previousTestDatabaseUrl }
+  if ($null -eq $previousRequireTestDatabase) { Remove-Item Env:FINTRACK_REQUIRE_TEST_DATABASE -ErrorAction SilentlyContinue } else { $env:FINTRACK_REQUIRE_TEST_DATABASE = $previousRequireTestDatabase }
+}
 uv run --locked ruff check .
+if ($LASTEXITCODE -ne 0) { throw "Ruff reported backend lint errors." }
 uv run --locked python export_openapi.py --check
 ```
 
-The safety guard compares the test connection to the configured application database before creating the engine; each test schema has a UUID-specific owner. Keep `TEST_DATABASE_URL` on a disposable database and never point destructive tests at the preview database.
+The safety guard compares `TEST_DATABASE_URL` with the effective application DSN before creating an engine or issuing DDL; each database test owns a UUID-specific schema. The preflight reads `TEST_DATABASE_URL` through FinTrack’s Pydantic settings and dotenv parser, preserves a caller-supplied `DATABASE_URL`, and proves the collision guard refuses an unsafe destination before engine creation or DDL. Test DSNs require an explicit port and reject all query parameters; application DSNs reject query options that can override host, port, database, or service routing. An application DSN must include its host and database, and the `fintrack_test` catalog name is reserved for test fixtures regardless of application host or port. The guard refuses `PGSERVICE`/`PGSERVICEFILE` routing. Both test engine connections pin network address and port to the validated loopback test DSN, so inherited `PGHOSTADDR` or `PGPORT` cannot redirect schema operations. The validator rejects reserved preview port 55432. This README’s Compose project maps the disposable service to 5433, and the recorded run used that exact validated DSN; if changing the Compose mapping, configure the loopback `fintrack_test` DSN to that disposable service. Only after preflight does the backend test run pin its application URL to unreachable port 55439. The PowerShell `finally` block restores the caller’s prior environment. `FINTRACK_REQUIRE_TEST_DATABASE=1` turns a missing test URL into a failure; GitHub Actions sets it, while ordinary local runs may skip database tests and show the reason with `pytest -ra`. Never use a demo or hosted database as `TEST_DATABASE_URL`. The example DSNs use `127.0.0.1` to match Compose’s loopback-only bindings and avoid slow IPv6 `localhost` resolution on some Windows setups.
 
 ## 🧾 Domain Implementation Details
 
@@ -247,7 +286,7 @@ API errors use `{"error":{"code":"...","message":"..."}}`. Validation failures r
 
 ### Next steps
 
-Automate lint, tests and the frontend build on pull requests, then time the documented setup on a fresh machine with empty dependency caches.
+GitHub Actions now runs the locked backend and frontend checks on pull requests and pushes to `main`. The README includes a complete local setup measurement and its warm-cache conditions; cold dependency and Docker image downloads still need a separate measurement.
 
 ## 🎓 Skills Demonstrated
 

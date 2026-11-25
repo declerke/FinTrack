@@ -5,6 +5,7 @@ import { AuthPage } from './pages/AuthPage';
 import { PortfoliosPage } from './pages/PortfoliosPage';
 import { PortfolioPage } from './pages/PortfolioPage';
 import { BrandMark } from './components/BrandMark';
+import { ThemeProvider, ThemeToggle } from './theme';
 
 function RequireSession({ token }: { token: string | null }) {
   const location = useLocation();
@@ -22,6 +23,7 @@ function ApplicationLayout({ onSignOut }: { onSignOut: () => void }) {
           </Link>
           <nav className="primary-navigation" aria-label="Main navigation">
             <Link to="/portfolios">Portfolios</Link>
+            <ThemeToggle />
             <button className="button button-quiet sign-out-button" type="button" onClick={onSignOut}>Sign out</button>
           </nav>
         </div>
@@ -56,7 +58,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <ThemeProvider>
       <a className="skip-link" href="#main-content">Skip to content</a>
       <Routes>
       <Route path="/login" element={token && !loginReturnPath ? <Navigate to="/portfolios" replace /> : <AuthPage mode="login" onAuthenticated={acceptSession} />} />
@@ -69,6 +71,6 @@ export default function App() {
       </Route>
       <Route path="*" element={<Navigate to={token ? '/portfolios' : '/login'} replace />} />
       </Routes>
-    </>
+    </ThemeProvider>
   );
 }

@@ -1,4 +1,4 @@
-import ipaddress
+import os
 from pathlib import Path
 
 from pydantic import Field, field_validator
@@ -7,6 +7,19 @@ from sqlalchemy.engine import URL, make_url
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 ALLOWED_TEST_HOSTS = {"localhost", "127.0.0.1", "::1"}
+RESERVED_PREVIEW_DATABASE_PORT = 55432
+TEST_DATABASE_NAME = "fintrack_test"
+DESTINATION_QUERY_PARAMETERS = {
+    "database",
+    "dbname",
+    "host",
+    "hostaddr",
+    "load_balance_hosts",
+    "port",
+    "service",
+    "servicefile",
+    "target_session_attrs",
+}
 
 
 class Settings(BaseSettings):
@@ -35,27 +48,6 @@ def get_settings() -> Settings:
     return Settings()
 
 
-def _normalized_database_host(host: str | None) -> str | None:
-    if host is None:
-        return None
-
-    normalized = host.rstrip(".").casefold()
-    if normalized == "localhost":
-        return "loopback"
-
-    try:
-        if ipaddress.ip_address(normalized).is_loopback:
-            return "loopback"
-    except ValueError:
-        pass
-    return normalized
-
-
-def _database_identity(url: URL) -> tuple[str | None, int, str | None]:
-    port = 5432 if url.port is None else url.port
-    return _normalized_database_host(url.host), port, url.database
-
-
 def validate_test_database_url(raw_url: str) -> URL:
     try:
         url = make_url(raw_url)
@@ -64,16 +56,32 @@ def validate_test_database_url(raw_url: str) -> URL:
 
     if url.drivername != "postgresql+psycopg":
         raise ValueError("TEST_DATABASE_URL must use the psycopg PostgreSQL driver")
-    if url.database != "fintrack_test":
+    if url.port is None:
+        raise ValueError("TEST_DATABASE_URL must specify an explicit port")
+    if url.query:
+        raise ValueError("TEST_DATABASE_URL must not include query parameters")
+    if url.database != TEST_DATABASE_NAME:
         raise ValueError("TEST_DATABASE_URL must target the dedicated fintrack_test database")
     if (url.host or "").lower() not in ALLOWED_TEST_HOSTS:
         raise ValueError("TEST_DATABASE_URL must target a loopback host")
+    if url.port == RESERVED_PREVIEW_DATABASE_PORT:
+        raise ValueError("TEST_DATABASE_URL must not use reserved preview port 55432")
 
     try:
         application_url = make_url(get_settings().database_url)
     except (TypeError, ValueError) as exc:
         raise ValueError("DATABASE_URL must be a valid application database URL") from exc
 
-    if _database_identity(url) == _database_identity(application_url):
-        raise ValueError("TEST_DATABASE_URL must not target the application database")
+    if not application_url.host or not application_url.database:
+        raise ValueError("DATABASE_URL must specify its host and database")
+    if application_url.database.casefold() == TEST_DATABASE_NAME:
+        raise ValueError("The fintrack_test catalog is reserved for tests")
+    if os.getenv("PGSERVICE") or os.getenv("PGSERVICEFILE"):
+        raise ValueError("PGSERVICE routing is not allowed during test database validation")
+
+    destination_overrides = DESTINATION_QUERY_PARAMETERS.intersection(
+        key.casefold() for key in application_url.query
+    )
+    if destination_overrides or "," in (application_url.host or ""):
+        raise ValueError("DATABASE_URL contains options that can override its destination")
     return url
