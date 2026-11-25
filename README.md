@@ -4,6 +4,8 @@
 
 [Open the live demo](https://fintrack-portfolio-ledger.vercel.app) · [Explore the API in Swagger](https://fintrack-api-bs43.onrender.com/docs) · [Download the OpenAPI schema](https://fintrack-api-bs43.onrender.com/openapi.json)
 
+**Release status:** These public URLs refer to a separately deployed release. The [QA branch](https://github.com/declerke/FinTrack/tree/qa/fintrack-release-verification) contains post-deadline review changes, including dark mode and additional request-state regressions. Those changes have not been deployed and are not part of the version submitted for Finnet's assessment.
+
 Sign in as `demo` with the password in the submission email. Open **Retirement** to inspect the sample SCOM ledger. To try your own trades, create a separate portfolio. The data is fictional. After an idle period, allow about a minute for the API to wake.
 
 ## 🎯 Project Goal
@@ -53,12 +55,12 @@ Frontend versions are from `frontend/package-lock.json`; Python package versions
 
 - Integrated frontend candidate: **36 tests across 9 files** passed; ESLint and the production TypeScript/Vite build passed (35 modules; 297.39 kB JavaScript, 91.53 kB gzip; 20.75 kB CSS).
 - Portfolio detail regression tests prove an older save refresh cannot restore a deleted ledger row, a late delete cannot steal focus from another portfolio, a save completing after navigation cannot publish success in the new portfolio, and a failed refresh cannot announce refreshed totals. Route changes also clear stale pending state.
-- Backend: **71 tests passed** against the disposable PostgreSQL 16 service on port 5433 with `DATABASE_URL` deliberately pinned to unreachable port 55439 after the effective application/test DSN preflight; Ruff and the OpenAPI export check passed while inherited `PGHOSTADDR` pointed elsewhere and `PGPORT` was set to reserved port 55432.
+- The starting release candidate passed **71 backend tests** against disposable PostgreSQL 16 on port 5433; its application URL was pinned to unreachable port 55439 after the database preflight. Ruff and the OpenAPI export check passed with inherited `PGHOSTADDR` pointing elsewhere and `PGPORT` set to reserved port 55432. These are historical results before this QA follow-up.
 - In the dark-mode Chromium run, the browser viewport was **375px** wide and its stable 15px scrollbar gutter left a **360px** document client width; the six new mobile captures are therefore 360px wide and match the rendered content. The separate earlier light-theme capture used a 390px browser window, yielding a 375px document client width and a 375px image. Both runs had no horizontal document overflow with 100-character portfolio and client names.
 - `docs/openapi.json` matches the FastAPI schema; the trade quantity and unit price use decimal-string inputs and a valid request example.
-- The [GitHub Actions workflow](.github/workflows/ci.yml) runs locked frontend and backend checks for pull requests and pushes to `main`, including Ruff, OpenAPI export, `pytest -ra` against an isolated PostgreSQL service, frontend tests, lint and production build. CI sets `FINTRACK_REQUIRE_TEST_DATABASE=1`, so a missing PostgreSQL URL fails the job instead of silently skipping database coverage; the application URL is unreachable during integration tests.
+- The [GitHub Actions workflow](.github/workflows/ci.yml) runs locked frontend and backend checks for pull requests and pushes to `main` and `qa/fintrack-release-verification`, including Ruff, OpenAPI export, `pytest -ra` against an isolated PostgreSQL service, frontend unit tests, fixture-backed Chromium regressions, lint and production build. CI sets `FINTRACK_REQUIRE_TEST_DATABASE=1`, so a missing PostgreSQL URL fails the job instead of silently skipping database coverage; the application URL is unreachable during integration tests.
 - Dark mode applies the system preference before React mounts and follows system changes until an explicit choice is made. A manual choice is stored across navigation and reload; the accessible keyboard-operable toggle appears on sign-in and authenticated pages. Real Chromium checks at desktop and a 375px browser viewport verified the header, brand, forms, native date input, allocation chart, transaction tables, disabled controls, validation errors and empty states. At that mobile viewport, Chromium reserved 15px for its scrollbar, leaving a 360px document client width; 100-character portfolio and client names wrap on list and detail pages, `document.scrollWidth` equals `document.clientWidth`, and the 700px/740px tables scroll within their 291px containers. Rendered RGB contrast checks for sampled body, table, chart, input, action, error and disabled-control text exceeded 4.5:1 in both themes.
-- Test database isolation rejects the application database before engine creation or DDL; the focused guard test passed. Integration tests used only disposable PostgreSQL on port 5433, never the running preview database on port 55432.
+- Test database isolation rejects the application database before engine creation or DDL. The historical integration run used only disposable PostgreSQL on port 5433 and never the reserved preview port 55432.
 - On 25 Nov 2026, the complete README setup took **about 7 minutes** from the first documented step at 21:13 EAT to signing in and opening Retirement with its holdings visible at about 21:21 EAT. This run used Python 3.12.14, uv 0.12.9, Node 22.23.5, npm 11.17.0, Docker Desktop 29.7.2, Compose and PostgreSQL 16. The worktree, `.venv`, `node_modules`, application database and test database were fresh; npm/uv caches were warm, and the PostgreSQL 16 Alpine image had been pulled during an earlier setup retry. Compose provisioning, locked dependency installation, migration, seed, API and frontend startup, sign-in and opening Retirement were included. The measured run met the ten-minute goal under these warm-cache/image conditions; cold dependency caches and a cold image download remain unmeasured.
 - No load or performance benchmark has been run.
 
@@ -145,10 +147,11 @@ The screenshots show fictional local sample data from an isolated browser review
 - Python 3.12 and `uv` 0.12.x or compatible locked-dependency support.
 - Node.js 22.23.5 and npm 11.x (`frontend/.nvmrc` records Node).
 - Docker Desktop with Docker Compose and PostgreSQL 16 images for local database provisioning.
+- The example uses loopback-only database ports 55532 and 55533, API port 8002, and Vite port 5175. Keep the app and test database ports distinct, choose unused local ports if these are occupied, and never use the reserved preview database port 55432 for tests.
 
 ### Start a local review environment
 
-1. From the repository root, copy `.env.example` to `.env`, then replace the local placeholders. Keep every `TEST_DATABASE_URL` occurrence aligned with the `POSTGRES_USER` and `POSTGRES_PASSWORD` values used by Compose. Set `JWT_SECRET_KEY` to a private unpredictable value of at least 32 characters and set a private fictional `DEMO_PASSWORD`. Do not commit `.env`.
+1. From the repository root, copy `.env.example` to `.env`, then replace the local placeholders. Keep the database URLs aligned with `POSTGRES_USER`, `POSTGRES_PASSWORD`, `FINTRACK_APP_DB_PORT`, and `FINTRACK_TEST_DB_PORT` used by Compose. Set `JWT_SECRET_KEY` to a private unpredictable value of at least 32 characters and set a private fictional `DEMO_PASSWORD`. Do not commit `.env`.
 2. Start the application database and isolated test database in a dedicated Compose project. This example uses `fintrack-review-local`; choose another unique name if it already exists:
 
    ```powershell
@@ -162,7 +165,7 @@ The screenshots show fictional local sample data from an isolated browser review
    uv sync --locked
    uv run --locked alembic upgrade head
    uv run --locked python -m app.seed
-   uv run --locked uvicorn app.main:app --host 127.0.0.1 --port 8000
+   uv run --locked uvicorn app.main:app --host 127.0.0.1 --port 8002
    ```
 
 4. In a second terminal at the repository root, install the locked frontend dependencies and start Vite:
@@ -170,17 +173,18 @@ The screenshots show fictional local sample data from an isolated browser review
    ```powershell
    Set-Location frontend
    npm ci
-   npm run dev
+   $env:VITE_API_BASE_URL = 'http://127.0.0.1:8002'
+   npm run dev -- --host 127.0.0.1 --port 5175 --strictPort
    ```
 
 5. Sign in with the fictional `DEMO_USERNAME` and `DEMO_PASSWORD` configured in the private `.env` file.
 
 | Local service | URL |
 |:--|:--|
-| Frontend | http://localhost:5173 |
-| API | http://localhost:8000 |
-| Swagger UI | http://localhost:8000/docs |
-| OpenAPI JSON | http://localhost:8000/openapi.json |
+| Frontend | http://127.0.0.1:5175 |
+| API | http://127.0.0.1:8002 |
+| Swagger UI | http://127.0.0.1:8002/docs |
+| OpenAPI JSON | http://127.0.0.1:8002/openapi.json |
 
 ### Hosted deployment
 
@@ -208,7 +212,14 @@ npm.cmd run lint
 npm.cmd run build
 ```
 
-Backend checks use the separate disposable test database exposed by Compose on port 5433. The PowerShell snippet reads the DSN from root `.env`, so it uses the same configured credentials. From `backend/`:
+To run the browser regressions, install Playwright's Chromium browser and run the fixture-backed suite from `frontend/`:
+
+```powershell
+npx.cmd playwright install chromium
+npm.cmd run test:e2e
+```
+
+Backend checks use the separate disposable test database exposed by Compose on port 55533. The PowerShell snippet reads the DSN from root `.env`, so it uses the same configured credentials. From `backend/`:
 
 ```powershell
 uv sync --locked
@@ -243,7 +254,7 @@ if ($LASTEXITCODE -ne 0) { throw "Ruff reported backend lint errors." }
 uv run --locked python export_openapi.py --check
 ```
 
-The safety guard compares `TEST_DATABASE_URL` with the effective application DSN before creating an engine or issuing DDL; each database test owns a UUID-specific schema. The preflight reads `TEST_DATABASE_URL` through FinTrack’s Pydantic settings and dotenv parser, preserves a caller-supplied `DATABASE_URL`, and proves the collision guard refuses an unsafe destination before engine creation or DDL. Test DSNs require an explicit port and reject all query parameters; application DSNs reject query options that can override host, port, database, or service routing. An application DSN must include its host and database, and the `fintrack_test` catalog name is reserved for test fixtures regardless of application host or port. The guard refuses `PGSERVICE`/`PGSERVICEFILE` routing. Both test engine connections pin network address and port to the validated loopback test DSN, so inherited `PGHOSTADDR` or `PGPORT` cannot redirect schema operations. The validator rejects reserved preview port 55432. This README’s Compose project maps the disposable service to 5433, and the recorded run used that exact validated DSN; if changing the Compose mapping, configure the loopback `fintrack_test` DSN to that disposable service. Only after preflight does the backend test run pin its application URL to unreachable port 55439. The PowerShell `finally` block restores the caller’s prior environment. `FINTRACK_REQUIRE_TEST_DATABASE=1` turns a missing test URL into a failure; GitHub Actions sets it, while ordinary local runs may skip database tests and show the reason with `pytest -ra`. Never use a demo or hosted database as `TEST_DATABASE_URL`. The example DSNs use `127.0.0.1` to match Compose’s loopback-only bindings and avoid slow IPv6 `localhost` resolution on some Windows setups.
+The safety guard compares `TEST_DATABASE_URL` with the effective application DSN before creating an engine or issuing DDL; each database test owns a UUID-specific schema. The preflight reads `TEST_DATABASE_URL` through FinTrack’s Pydantic settings and dotenv parser, preserves a caller-supplied `DATABASE_URL`, and proves the collision guard refuses an unsafe destination before engine creation or DDL. Test DSNs require an explicit port and reject all query parameters; application DSNs reject query options that can override host, port, database, or service routing. An application DSN must include its host and database, and the `fintrack_test` catalog name is reserved for test fixtures regardless of application host or port. The guard refuses `PGSERVICE`/`PGSERVICEFILE` routing. Both test engine connections pin network address and port to the validated loopback test DSN, so inherited `PGHOSTADDR` or `PGPORT` cannot redirect schema operations. The validator rejects reserved preview port 55432. This README’s Compose project maps the disposable service to 55533; if changing the Compose mapping, configure the loopback `fintrack_test` DSN to that disposable service. Only after preflight does the backend test run pin its application URL to unreachable port 55439. The PowerShell `finally` block restores the caller’s prior environment. `FINTRACK_REQUIRE_TEST_DATABASE=1` turns a missing test URL into a failure; GitHub Actions sets it, while ordinary local runs may skip database tests and show the reason with `pytest -ra`. Never use a demo or hosted database as `TEST_DATABASE_URL`. The example DSNs use `127.0.0.1` to match Compose’s loopback-only bindings and avoid slow IPv6 `localhost` resolution on some Windows setups.
 
 ## 🧾 Domain Implementation Details
 
@@ -286,7 +297,7 @@ API errors use `{"error":{"code":"...","message":"..."}}`. Validation failures r
 
 ### Next steps
 
-GitHub Actions now runs the locked backend and frontend checks on pull requests and pushes to `main`. The README includes a complete local setup measurement and its warm-cache conditions; cold dependency and Docker image downloads still need a separate measurement.
+GitHub Actions runs the locked backend and frontend checks on pull requests and pushes to `main` and the QA verification branch. This branch-only follow-up is not deployed; the README records its setup measurement and cache conditions separately from the public release.
 
 ## 🎓 Skills Demonstrated
 
