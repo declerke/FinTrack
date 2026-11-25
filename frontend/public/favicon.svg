@@ -1,5 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" role="img" aria-label="FinTrack">
-  <rect width="40" height="40" rx="10" fill="#102a43" />
-  <path d="M11 29V11h18v4H16v3h10v4H16v7z" fill="#fff" />
-  <path d="M24 29v-7l6-4v11z" fill="#55c5bd" />
+  <rect width="40" height="40" rx="10" fill="#0b1f33" />
+  <path d="M11 29V11h18v4H16v3h10v4H16v7z" fill="#f7fafc" />
+  <path d="m24 25 6-4 5 7m-11-3 5 7" fill="none" stroke="#63c74d" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+  <circle cx="24" cy="25" r="2" fill="#63c74d" />
+  <circle cx="30" cy="21" r="2" fill="#63c74d" />
+  <circle cx="35" cy="28" r="2" fill="#63c74d" />
+  <circle cx="29" cy="32" r="2" fill="#63c74d" />
 </svg>

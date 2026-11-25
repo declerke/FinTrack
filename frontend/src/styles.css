@@ -1,17 +1,18 @@
 :root {
   font-family: Inter, 'Segoe UI', sans-serif;
-  color: #102a43;
+  color: #0b1f33;
   background: #f3f7fa;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   font-optical-sizing: auto;
-  --ink: #102a43;
+  --ink: #0b1f33;
   --ink-soft: #334e68;
   --muted: #486581;
   --muted-light: #627d98;
-  --accent: #147d87;
-  --accent-dark: #0d626b;
-  --accent-soft: #e2f3f3;
+  --accent: #1f7046;
+  --accent-dark: #174c34;
+  --accent-soft: #e8f2eb;
+  --brand-accent: #63c74d;
   --page: #f3f7fa;
   --surface: #ffffff;
   --surface-soft: #f8fbfd;
@@ -75,7 +76,7 @@ input:focus-visible,
 select:focus-visible,
 [tabindex='0']:focus-visible,
 [tabindex='-1']:focus-visible {
-  outline: 3px solid #147d87;
+  outline: 3px solid var(--accent);
   outline-offset: 3px;
 }
 
@@ -155,8 +156,8 @@ h3 {
 .site-header {
   position: relative;
   z-index: 2;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--ink);
+  border-bottom: 2px solid var(--brand-accent);
 }
 
 .site-header-inner {
@@ -181,25 +182,56 @@ h3 {
   color: var(--ink);
 }
 
+.site-header .brand-lockup,
+.site-header .brand-lockup:hover {
+  color: #f7fafc;
+}
+
 .brand-mark {
+  position: relative;
   display: grid;
   width: 42px;
   height: 42px;
   flex: 0 0 auto;
   place-items: center;
   border-radius: 13px;
-  background: var(--accent);
-  color: white;
+  background: var(--brand-accent);
+  color: var(--ink);
   font-family: Inter, 'Segoe UI', sans-serif;
   font-size: 1.25rem;
   font-weight: 800;
-  box-shadow: 0 5px 12px rgb(20 125 135 / 18%);
+  box-shadow: 0 5px 12px rgb(11 31 51 / 24%);
+}
+
+.brand-letter {
+  position: absolute;
+  top: 6px;
+  left: 9px;
+  z-index: 1;
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.brand-network {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 15px;
+  height: 15px;
+  color: var(--ink);
+  opacity: 0.9;
+  pointer-events: none;
 }
 
 .brand-name,
 .auth-brand > span:last-child {
   display: grid;
   line-height: 1.25;
+}
+
+.site-header .brand-name small {
+  color: #d9e2ec;
 }
 
 .brand-name strong,
@@ -224,13 +256,29 @@ h3 {
 }
 
 .primary-navigation > a {
-  color: var(--ink-soft);
+  color: #f7fafc;
   font-weight: 700;
   text-decoration: none;
 }
 
 .primary-navigation > a:hover {
-  color: var(--accent-dark);
+  color: var(--brand-accent);
+}
+
+.site-header .button-quiet {
+  border-color: #70869b;
+  background: transparent;
+  color: #f7fafc;
+}
+
+.site-header .button-quiet:hover:not(:disabled) {
+  border-color: #d9e2ec;
+  background: #1c3447;
+  color: #f7fafc;
+}
+
+.site-header :focus-visible {
+  outline-color: #f7fafc;
 }
 
 .page-content {
@@ -278,10 +326,10 @@ h3 {
   justify-content: center;
   min-height: 30px;
   padding: 5px 11px;
-  border: 1px solid #b7dede;
+  border: 1px solid #bdd2c4;
   border-radius: 99px;
   background: var(--accent-soft);
-  color: #0b5861;
+  color: var(--accent-dark);
   font-size: 0.76rem;
   font-weight: 800;
   white-space: nowrap;
@@ -460,14 +508,14 @@ h3 {
 
 .button-secondary {
   border-color: var(--accent);
-  background: #edf8f8;
-  color: #0b5861;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
 }
 
 .button-secondary:hover:not(:disabled) {
   border-color: var(--accent-dark);
-  background: #e0f1f1;
-  color: #084b52;
+  background: #dcebe0;
+  color: var(--accent-dark);
 }
 
 .button-quiet {
@@ -823,15 +871,16 @@ h3 {
 }
 
 .summary-metric-value {
-  border-color: #b7dede;
-  background: #f0f9f9;
+  border-color: var(--border);
+  background: var(--surface-soft);
 }
 
 .accounting-note {
   padding: 10px 12px;
   margin-bottom: 20px;
-  border-left: 3px solid var(--accent);
-  background: #f3f9fa;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
   color: var(--ink-soft);
   font-size: 0.78rem;
 }
@@ -994,10 +1043,10 @@ h3 {
 .instrument-chip {
   display: inline-flex;
   padding: 3px 7px;
-  border: 1px solid #c6e3e4;
+  border: 1px solid #cbd6df;
   border-radius: 6px;
-  background: #f1f9f9;
-  color: #0c5860;
+  background: #eaf0f5;
+  color: #193d5a;
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -1008,15 +1057,10 @@ h3 {
   justify-content: center;
   padding: 3px 7px;
   border-radius: 6px;
-  background: var(--positive-bg);
-  color: var(--positive);
+  background: #eaf0f5;
+  color: var(--ink-soft);
   font-size: 0.72rem;
   font-weight: 800;
-}
-
-.trade-badge-sell {
-  background: #fff2e7;
-  color: #8a4b12;
 }
 
 .action-cell {
@@ -1099,7 +1143,7 @@ h3 {
 }
 
 .auth-intro .eyebrow {
-  color: #8de0df;
+  color: #a2e491;
 }
 
 .auth-intro h1 {
@@ -1129,8 +1173,8 @@ h3 {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #5fd3cf;
-  box-shadow: 0 0 0 5px rgb(95 211 207 / 16%);
+  background: var(--brand-accent);
+  box-shadow: 0 0 0 5px rgb(99 199 77 / 16%);
 }
 
 .auth-panel {

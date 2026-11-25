@@ -4,6 +4,7 @@ import { getApiToken, onUnauthorized, setApiToken } from './api';
 import { AuthPage } from './pages/AuthPage';
 import { PortfoliosPage } from './pages/PortfoliosPage';
 import { PortfolioPage } from './pages/PortfolioPage';
+import { BrandMark } from './components/BrandMark';
 
 function RequireSession({ token }: { token: string | null }) {
   const location = useLocation();
@@ -16,7 +17,7 @@ function ApplicationLayout({ onSignOut }: { onSignOut: () => void }) {
       <header className="site-header">
         <div className="site-header-inner">
           <Link className="brand-lockup" to="/portfolios" aria-label="FinTrack by Finnet Technologies — portfolios">
-            <span className="brand-mark" aria-hidden="true">F</span>
+            <BrandMark />
             <span className="brand-name"><strong>FinTrack</strong><small>by Finnet Technologies</small></span>
           </Link>
           <nav className="primary-navigation" aria-label="Main navigation">
