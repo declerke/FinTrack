@@ -245,9 +245,15 @@ API errors use `{"error":{"code":"...","message":"..."}}`. Validation failures r
 - Each portfolio has one base currency, KES or USD. Values are not added across currencies.
 - After page refresh, an analyst signs in again because bearer tokens are held in memory.
 
+### Next steps
+
+Automate lint, tests and the frontend build on pull requests, then time the documented setup on a fresh machine with empty dependency caches.
+
 ## 🎓 Skills Demonstrated
 
 - **API design:** Typed request validation, bearer authentication, and owner-scoped authorization.
 - **Data engineering:** PostgreSQL migrations, isolated test schemas, Decimal accounting, rollback, and concurrent ledger writes.
 - **Frontend engineering:** Responsive React development, accessible labels and focus behavior, route-aware async state, and genuine client-side sorting/filtering.
 - **Delivery quality:** Regression testing, linting, OpenAPI export, production bundling, and evidence-backed documentation.
+
+AI tool used during development: OpenAI Codex.
