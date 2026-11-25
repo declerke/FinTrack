@@ -1,12 +1,10 @@
 # 📊 FinTrack: Ledger-Based Portfolio Tracker
 
-**FinTrack by Finnet Technologies** is an assessment prototype built with production-minded practices to bridge the gap between an ordered trade ledger and an analyst-facing holdings view. It records fictional trades and derives open positions, moving weighted-average cost, allocations, and estimated value from transaction history. It does not provide investment advice or live market prices.
+**FinTrack by Finnet Technologies** is a portfolio tracker for investment analysts. Record buys and sells in KES or USD and see how each trade changes open holdings, remaining cost and estimated portfolio value.
 
-**Live evaluator demo:** [FinTrack](https://fintrack-lyart-eight-61.vercel.app)
+[Open the live demo](https://fintrack-portfolio-ledger.vercel.app) · [Explore the API in Swagger](https://fintrack-api-bs43.onrender.com/docs) · [Download the OpenAPI schema](https://fintrack-api-bs43.onrender.com/openapi.json)
 
-**API:** [https://fintrack-api-bs43.onrender.com](https://fintrack-api-bs43.onrender.com) · **Swagger:** [OpenAPI UI](https://fintrack-api-bs43.onrender.com/docs) · **OpenAPI JSON:** [Schema](https://fintrack-api-bs43.onrender.com/openapi.json)
-
-The public seed account is fictional. The demo username is `demo`; its password is supplied privately for evaluation.
+Sign in as `demo` with the password in the submission email. Open **Retirement** to inspect the sample SCOM ledger. To try your own trades, create a separate portfolio. The data is fictional. After an idle period, allow about a minute for the API to wake.
 
 ## 🎯 Project Goal
 
@@ -56,7 +54,7 @@ Frontend versions are from `frontend/package-lock.json`; Python package versions
 - Frontend at `bd4eff5`: **28 tests across 8 files** passed; ESLint and the production TypeScript/Vite build passed (33 modules; 296.18 kB JavaScript, 91.12 kB gzip).
 - Portfolio detail regression tests prove an older save refresh cannot restore a deleted ledger row, a late delete cannot steal focus from another portfolio, a save completing after navigation cannot publish success in the new portfolio, and a failed refresh cannot announce refreshed totals. Route changes also clear stale pending state.
 - Backend at `bd4eff5`: **52 tests passed** against a separate disposable PostgreSQL database on port 55485; Ruff and the OpenAPI export check also passed.
-- At a 375px document client width, captured with a 390px Playwright window and a stable 15px scrollbar gutter, both list and detail document widths measured **375/375px** (`clientWidth` / `scrollWidth`) with 100-character portfolio and client names. On the list, the name/client block measured x=32.8–342.4; Open, Edit, and Delete ended at x=149.2, 206.6, and 280.0. On detail, title/client content measured x=16–359.2, the KES badge ended at x=76.8, and Record Trade ended at x=341.4.
+- At a 375px document client width, captured with a 390px Playwright window and a stable 15px scrollbar gutter, both list and detail document widths measured **375/375px** (`clientWidth` / `scrollWidth`) with 100-character portfolio and client names.
 - `docs/openapi.json` matches the FastAPI schema; the trade quantity and unit price use decimal-string inputs and a valid request example.
 - Test database isolation rejects the application database before engine creation or DDL; the focused guard test passed. Integration tests used only the disposable database on port 55485, never the running preview database on port 55432.
 - In a clean worktree at `bd4eff5`, `npm ci`, `uv sync --locked`, migration, and seed took **17.34 seconds** with warm npm/uv caches. It used Python 3.12.14, uv 0.12.9, Node 22.23.5, npm 11.17.0, and PostgreSQL 16.16. Docker Desktop was unavailable; the disposable database was already provisioned and running on port 55485, so database provisioning, process startup, and cold dependency downloads are excluded. Full cold setup remains unverified.
@@ -74,7 +72,7 @@ The screenshots show fictional local sample data from an isolated browser review
 
 ![FinTrack portfolio detail on desktop](docs/screenshots/desktop-portfolio-detail.png)
 
-**375px document-width mobile portfolio detail.** Captured at 390px browser width with a stable 15px scrollbar gutter. The 100-character portfolio and client names wrap, the document measures 375/375px, and Record Trade ends at x=341.4.
+**375px document-width mobile portfolio detail.** Captured at 390px browser width with a stable 15px scrollbar gutter. Both 100-character names wrap and the trade form stays within the viewport.
 
 ![FinTrack portfolio detail at 375 pixels](docs/screenshots/mobile-portfolio-detail-375.png)
 
@@ -172,7 +170,7 @@ The screenshots show fictional local sample data from an isolated browser review
 
 | Service | Public URL | Hosting configuration |
 |:--|:--|:--|
-| Frontend | [FinTrack](https://fintrack-lyart-eight-61.vercel.app) | Vercel Hobby; Vite project root `frontend`; `npm ci`, `npm run build`, output `dist`; `frontend/vercel.json` routes deep links to the app shell. |
+| Frontend | [FinTrack](https://fintrack-portfolio-ledger.vercel.app) | Vercel Hobby; Vite project root `frontend`; `npm ci`, `npm run build`, output `dist`; `frontend/vercel.json` routes deep links to the app shell. |
 | API | [FastAPI](https://fintrack-api-bs43.onrender.com) | Render Free web service in Virginia; Python 3.12; root `backend`; `uv sync --locked --no-dev`; start with `uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port $PORT`. |
 | API docs | [Swagger UI](https://fintrack-api-bs43.onrender.com/docs) | Public OpenAPI documentation. |
 | Database | Neon PostgreSQL | Free project in AWS us-east-1; TLS required; pooled URL for runtime and direct URL for Alembic. |
@@ -239,4 +237,4 @@ API errors use `{"error":{"code":"...","message":"..."}}`. Validation failures r
 - **Frontend engineering:** Responsive React development, accessible labels and focus behavior, route-aware async state, and genuine client-side sorting/filtering.
 - **Delivery quality:** Regression testing, linting, OpenAPI export, production bundling, and evidence-backed documentation.
 
-I used OpenAI Codex to assist with planning, implementation, and testing. I own the assessment decisions, review, and final submission.
+I used OpenAI Codex to assist with planning, implementation and testing.
