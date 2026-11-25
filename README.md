@@ -1,8 +1,12 @@
 # 📊 FinTrack: Ledger-Based Portfolio Tracker
 
-**FinTrack by Finnet Technologies** is a production-grade assessment prototype I built to bridge the gap between an ordered trade ledger and an analyst-facing holdings view. It records fictional trades and derives open positions, moving weighted-average cost, allocations, and estimated value from transaction history. It does not provide investment advice or live market prices.
+**FinTrack by Finnet Technologies** is an assessment prototype built with production-minded practices to bridge the gap between an ordered trade ledger and an analyst-facing holdings view. It records fictional trades and derives open positions, moving weighted-average cost, allocations, and estimated value from transaction history. It does not provide investment advice or live market prices.
 
-**Live evaluator demo and Swagger:** not available yet; hosting access and deployment verification remain release gates. The local URLs are listed in the setup section below.
+**Live evaluator demo:** [FinTrack](https://fintrack-lyart-eight-61.vercel.app)
+
+**API:** [https://fintrack-api-bs43.onrender.com](https://fintrack-api-bs43.onrender.com) · **Swagger:** [OpenAPI UI](https://fintrack-api-bs43.onrender.com/docs) · **OpenAPI JSON:** [Schema](https://fintrack-api-bs43.onrender.com/openapi.json)
+
+The public seed account is fictional. The demo username is `demo`; its password is supplied privately for evaluation.
 
 ## 🎯 Project Goal
 
@@ -164,7 +168,20 @@ The screenshots show fictional local sample data from an isolated browser review
 | Swagger UI | http://localhost:8000/docs |
 | OpenAPI JSON | http://localhost:8000/openapi.json |
 
-No public evaluator URLs are available yet. Before submission, hosting access is needed to create/link a frontend project for `declerke/FinTrack` (root directory `frontend`), authorize a backend service and persistent PostgreSQL database, confirm cost/quota and at least 14 days of retention, configure provider-side secrets, and verify the deployed revision. Do not place deployment secrets in this repository.
+### Hosted deployment
+
+| Service | Public URL | Hosting configuration |
+|:--|:--|:--|
+| Frontend | [FinTrack](https://fintrack-lyart-eight-61.vercel.app) | Vercel Hobby; Vite project root `frontend`; `npm ci`, `npm run build`, output `dist`; `frontend/vercel.json` routes deep links to the app shell. |
+| API | [FastAPI](https://fintrack-api-bs43.onrender.com) | Render Free web service in Virginia; Python 3.12; root `backend`; `uv sync --locked --no-dev`; start with `uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port $PORT`. |
+| API docs | [Swagger UI](https://fintrack-api-bs43.onrender.com/docs) | Public OpenAPI documentation. |
+| Database | Neon PostgreSQL | Free project in AWS us-east-1; TLS required; pooled URL for runtime and direct URL for Alembic. |
+
+The production Vercel variable `VITE_API_BASE_URL` is the API origin without `/api`. Render's `CORS_ORIGINS` is a JSON array containing the exact Vercel origin. `DATABASE_URL`, `JWT_SECRET_KEY`, `DEMO_USERNAME`, and `DEMO_PASSWORD` are configured in the Render service settings. Never put their values in this repository or a browser bundle.
+
+Render Free web services spin down after 15 minutes without incoming traffic and can take about a minute to start again. The free tier is intended for hobby projects and previews; its monthly usage limits and restart behavior apply. See [Render Free service limits](https://render.com/docs/free), [Vercel Hobby](https://vercel.com/docs/plans/hobby), and [Neon pricing](https://neon.com/pricing).
+
+For a new deployment, configure the environment variables in the providers first. Apply `uv run --no-sync alembic upgrade head` and `uv run --no-sync python -m app.seed` once against the Neon database using its direct TLS connection URL. Keep the runtime URL pooled. Set `VITE_API_BASE_URL` in Vercel Production and rebuild after changing it. The seed is idempotent. Never point pytest at the hosted database.
 
 ### Run checks
 
