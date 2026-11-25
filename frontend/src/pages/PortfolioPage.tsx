@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import type { Portfolio, PortfolioSummary, Transaction } from '../types';
 import { formatDate } from '../format';
@@ -13,8 +13,24 @@ function errorText(error: unknown): string {
     : 'FinTrack could not complete this request. Check your connection and try again.';
 }
 
+interface PortfolioData {
+  portfolio: Portfolio;
+  transactions: Transaction[];
+  summary: PortfolioSummary;
+}
+
+async function fetchPortfolioData(portfolioId: number): Promise<PortfolioData> {
+  const [portfolio, transactions, summary] = await Promise.all([
+    api.getPortfolio(portfolioId),
+    api.getTransactions(portfolioId),
+    api.getSummary(portfolioId),
+  ]);
+  return { portfolio, transactions, summary };
+}
+
 export function PortfolioPage() {
   const { id: routeId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const portfolioId = Number(routeId);
   const isValidPortfolioId = Number.isSafeInteger(portfolioId) && portfolioId >= 1;
@@ -29,65 +45,111 @@ export function PortfolioPage() {
   const [actionError, setActionError] = useState('');
   const [notice, setNotice] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const latestLoadId = useRef(0);
+  const activeView = useRef<{ portfolioId: number; locationKey: string } | null>(null);
+
+  useLayoutEffect(() => {
+    const view = isValidPortfolioId ? { portfolioId, locationKey: location.key } : null;
+    activeView.current = view;
+    return () => {
+      if (activeView.current?.locationKey === location.key) activeView.current = null;
+    };
+  }, [isValidPortfolioId, location.key, portfolioId]);
 
   const loadPortfolio = useCallback(async (showPageLoader: boolean) => {
-    if (showPageLoader) setIsLoading(true);
-    else setIsRefreshing(true);
+    const locationKey = location.key;
+    const isStillActiveView = () => (
+      activeView.current?.portfolioId === portfolioId
+      && activeView.current.locationKey === locationKey
+    );
+    if (!isStillActiveView()) return;
+
+    const loadId = ++latestLoadId.current;
+    if (showPageLoader) {
+      setIsLoading(true);
+      setIsRefreshing(false);
+      setPendingDeleteId(null);
+      setActionError('');
+      setNotice('');
+    } else setIsRefreshing(true);
     setLoadError('');
     setLoadErrorForId(null);
     setRefreshError('');
     try {
-      const [portfolioData, transactionData, summaryData] = await Promise.all([
-        api.getPortfolio(portfolioId),
-        api.getTransactions(portfolioId),
-        api.getSummary(portfolioId),
-      ]);
-      setPortfolio(portfolioData);
-      setTransactions(transactionData);
-      setSummary(summaryData);
+      const { portfolio, transactions, summary } = await fetchPortfolioData(portfolioId);
+      if (loadId !== latestLoadId.current || !isStillActiveView()) return;
+      setPortfolio(portfolio);
+      setTransactions(transactions);
+      setSummary(summary);
     } catch (error) {
+      if (loadId !== latestLoadId.current || !isStillActiveView()) return;
       if (showPageLoader) {
         setLoadError(errorText(error));
         setLoadErrorForId(portfolioId);
       } else setRefreshError(errorText(error));
     } finally {
-      if (showPageLoader) setIsLoading(false);
-      else setIsRefreshing(false);
+      if (loadId === latestLoadId.current && isStillActiveView()) {
+        if (showPageLoader) setIsLoading(false);
+        else setIsRefreshing(false);
+      }
     }
-  }, [portfolioId]);
+  }, [location.key, portfolioId]);
 
   const isCurrentPortfolio = portfolio?.id === portfolioId;
 
   useEffect(() => {
     if (!isValidPortfolioId) return;
-
+    const locationKey = location.key;
+    const loadId = ++latestLoadId.current;
     let isCurrentRequest = true;
-    void Promise.all([
-      api.getPortfolio(portfolioId),
-      api.getTransactions(portfolioId),
-      api.getSummary(portfolioId),
-    ])
-      .then(([portfolioData, transactionData, summaryData]) => {
-        if (!isCurrentRequest) return;
-        setPortfolio(portfolioData);
-        setTransactions(transactionData);
-        setSummary(summaryData);
+
+    void fetchPortfolioData(portfolioId)
+      .then(({ portfolio: nextPortfolio, transactions: nextTransactions, summary: nextSummary }) => {
+        const view = activeView.current;
+        if (
+          !isCurrentRequest
+          || loadId !== latestLoadId.current
+          || view?.portfolioId !== portfolioId
+          || view.locationKey !== locationKey
+        ) return;
+        setPortfolio(nextPortfolio);
+        setTransactions(nextTransactions);
+        setSummary(nextSummary);
         setLoadError('');
         setLoadErrorForId(null);
+        setRefreshError('');
+        setActionError('');
+        setNotice('');
       })
       .catch((error: unknown) => {
-        if (!isCurrentRequest) return;
+        const view = activeView.current;
+        if (
+          !isCurrentRequest
+          || loadId !== latestLoadId.current
+          || view?.portfolioId !== portfolioId
+          || view.locationKey !== locationKey
+        ) return;
         setLoadError(errorText(error));
         setLoadErrorForId(portfolioId);
       })
       .finally(() => {
-        if (isCurrentRequest) setIsLoading(false);
+        const view = activeView.current;
+        if (
+          isCurrentRequest
+          && loadId === latestLoadId.current
+          && view?.portfolioId === portfolioId
+          && view.locationKey === locationKey
+        ) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+          setPendingDeleteId(null);
+        }
       });
 
     return () => {
       isCurrentRequest = false;
     };
-  }, [isValidPortfolioId, portfolioId]);
+  }, [isValidPortfolioId, location.key, portfolioId]);
 
   useEffect(() => {
     document.title = isCurrentPortfolio && portfolio
@@ -96,14 +158,24 @@ export function PortfolioPage() {
   }, [isCurrentPortfolio, portfolio]);
 
   async function saveTrade(trade: NewTrade) {
+    const saveViewKey = location.key;
     setActionError('');
     setNotice('');
     await api.createTransaction(portfolioId, trade);
+    if (
+      activeView.current?.portfolioId !== portfolioId
+      || activeView.current.locationKey !== saveViewKey
+    ) return;
     setNotice('Trade saved to the portfolio ledger.');
     await loadPortfolio(false);
   }
 
   async function deleteTrade(trade: Transaction) {
+    const deleteViewKey = location.key;
+    const isStillDeleteView = () => (
+      activeView.current?.portfolioId === portfolioId
+      && activeView.current.locationKey === deleteViewKey
+    );
     const type = trade.type === 'BUY' ? 'buy' : 'sell';
     if (!window.confirm(`Delete this ${type} of ${trade.quantity} ${trade.instrument}? Later trades will be checked against the updated ledger.`)) return;
     setPendingDeleteId(trade.id);
@@ -111,13 +183,17 @@ export function PortfolioPage() {
     setNotice('');
     try {
       await api.deleteTransaction(trade.id);
-      setNotice('Trade deleted. Holdings and totals were refreshed.');
+      if (!isStillDeleteView()) return;
+      setNotice('Trade deleted from the portfolio ledger.');
       await loadPortfolio(false);
-      window.requestAnimationFrame(() => document.getElementById('transactions-heading')?.focus());
+      if (!isStillDeleteView()) return;
+      window.requestAnimationFrame(() => {
+        if (isStillDeleteView()) document.getElementById('transactions-heading')?.focus();
+      });
     } catch (error) {
-      setActionError(errorText(error));
+      if (isStillDeleteView()) setActionError(errorText(error));
     } finally {
-      setPendingDeleteId(null);
+      if (isStillDeleteView()) setPendingDeleteId(null);
     }
   }
 
@@ -184,11 +260,11 @@ export function PortfolioPage() {
 
       <div className="detail-grid">
         <div className="detail-primary">
-          <section className="panel trade-entry-panel" aria-label="Record a portfolio trade">
-            <TradeForm currency={portfolio.base_currency} onSubmit={saveTrade} />
-          </section>
           <section className="panel holdings-container" aria-label="Portfolio holdings">
             <HoldingsPanel summary={summary} currency={portfolio.base_currency} />
+          </section>
+          <section className="panel trade-entry-panel" aria-label="Record a portfolio trade">
+            <TradeForm currency={portfolio.base_currency} onSubmit={saveTrade} />
           </section>
         </div>
         <section className="panel transaction-container" aria-label="Portfolio transaction history">
