@@ -23,34 +23,33 @@ export function PortfoliosPage() {
   const [notice, setNotice] = useState('');
   const nameInput = useRef<HTMLInputElement>(null);
   const listHeading = useRef<HTMLHeadingElement>(null);
+  const latestLoadId = useRef(0);
 
-  const loadPortfolios = useCallback(async () => {
-    setIsLoading(true);
-    setLoadError('');
-    try {
-      setPortfolios(await api.getPortfolios());
-    } catch (error) {
-      setLoadError(errorText(error));
-    } finally {
-      setIsLoading(false);
-    }
+  const loadPortfolios = useCallback(() => {
+    const loadId = ++latestLoadId.current;
+    return api.getPortfolios()
+      .then((loadedPortfolios) => {
+        if (loadId === latestLoadId.current) setPortfolios(loadedPortfolios);
+      })
+      .catch((error: unknown) => {
+        if (loadId === latestLoadId.current) setLoadError(errorText(error));
+      })
+      .finally(() => {
+        if (loadId === latestLoadId.current) setIsLoading(false);
+      });
   }, []);
 
   useEffect(() => {
-    let isCurrent = true;
     document.title = 'Portfolios · FinTrack by Finnet Technologies';
-    api.getPortfolios()
-      .then((loadedPortfolios) => {
-        if (isCurrent) setPortfolios(loadedPortfolios);
-      })
-      .catch((error: unknown) => {
-        if (isCurrent) setLoadError(errorText(error));
-      })
-      .finally(() => {
-        if (isCurrent) setIsLoading(false);
-      });
-    return () => { isCurrent = false; };
-  }, []);
+    void loadPortfolios();
+    return () => { latestLoadId.current += 1; };
+  }, [loadPortfolios]);
+
+  async function refreshPortfolios() {
+    setIsLoading(true);
+    setLoadError('');
+    await loadPortfolios();
+  }
 
   function updateForm(field: keyof PortfolioInput, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -75,6 +74,7 @@ export function PortfoliosPage() {
 
   async function submitPortfolio(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pendingAction !== null) return;
     setActionError('');
     setNotice('');
     setPendingAction('save');
@@ -89,7 +89,7 @@ export function PortfoliosPage() {
       }
       setEditingId(null);
       setForm(emptyForm);
-      await loadPortfolios();
+      await refreshPortfolios();
     } catch (error) {
       setActionError(errorText(error));
     } finally {
@@ -110,7 +110,7 @@ export function PortfoliosPage() {
         setForm(emptyForm);
       }
       setNotice(`${portfolio.name} deleted.`);
-      await loadPortfolios();
+      await refreshPortfolios();
       window.requestAnimationFrame(() => listHeading.current?.focus());
     } catch (error) {
       setActionError(errorText(error));
@@ -159,7 +159,7 @@ export function PortfoliosPage() {
               {editingId !== null ? <p className="field-hint">A portfolio currency cannot change after its first trade.</p> : null}
             </div>
             <div className="form-actions">
-              <button className="button button-primary" type="submit" disabled={pendingAction === 'save'} aria-busy={pendingAction === 'save'}>
+              <button className="button button-primary" type="submit" disabled={pendingAction !== null} aria-busy={pendingAction === 'save'}>
                 {pendingAction === 'save' ? 'Saving…' : editingId === null ? 'Create portfolio' : 'Save changes'}
               </button>
               {editingId !== null ? <button className="button button-quiet" type="button" onClick={cancelEditing} disabled={pendingAction !== null}>Cancel edit</button> : null}
@@ -180,7 +180,7 @@ export function PortfoliosPage() {
             <div className="message-panel message-panel-error" role="alert">
               <h3>Portfolios could not be loaded</h3>
               <p>{loadError}</p>
-              <button type="button" className="button button-secondary" onClick={() => void loadPortfolios()}>Try again</button>
+              <button type="button" className="button button-secondary" onClick={() => void refreshPortfolios()}>Try again</button>
             </div>
           ) : null}
 

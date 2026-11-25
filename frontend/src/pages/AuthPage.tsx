@@ -21,7 +21,11 @@ function messageFrom(error: unknown): string {
     : 'FinTrack could not complete your request. Check your connection and try again.';
 }
 
-export function AuthPage({ mode, onAuthenticated }: AuthPageProps) {
+export function AuthPage(props: AuthPageProps) {
+  return <AuthForm key={props.mode} {...props} />;
+}
+
+function AuthForm({ mode, onAuthenticated }: AuthPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const navigationState = location.state as NavigationState | null;
