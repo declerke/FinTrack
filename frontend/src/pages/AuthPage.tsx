@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { BrandMark } from '../components/BrandMark';
@@ -32,6 +32,7 @@ function AuthForm({ mode, onAuthenticated }: AuthPageProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isPending, setIsPending] = useState(false);
+  const activeRequest = useRef<symbol | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [notice, setNotice] = useState(
     navigationState?.registrationSuccess ? 'Account created. Sign in to continue.'
@@ -43,8 +44,16 @@ function AuthForm({ mode, onAuthenticated }: AuthPageProps) {
     document.title = `${mode === 'login' ? 'Sign in' : 'Create account'} · FinTrack by Finnet Technologies`;
   }, [mode]);
 
+  useLayoutEffect(() => () => {
+    activeRequest.current = null;
+  }, []);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (activeRequest.current !== null) return;
+
+    const request = Symbol();
+    activeRequest.current = request;
     setErrorMessage('');
     setNotice('');
     setIsPending(true);
@@ -52,16 +61,21 @@ function AuthForm({ mode, onAuthenticated }: AuthPageProps) {
     try {
       if (mode === 'register') {
         await api.register(credentials);
+        if (activeRequest.current !== request) return;
         navigate('/login', { replace: true, state: { registrationSuccess: true } });
       } else {
         const session = await api.login(credentials);
+        if (activeRequest.current !== request) return;
         onAuthenticated(session.access_token);
         navigate(navigationState?.from?.pathname || '/portfolios', { replace: true });
       }
     } catch (error) {
-      setErrorMessage(messageFrom(error));
+      if (activeRequest.current === request) setErrorMessage(messageFrom(error));
     } finally {
-      setIsPending(false);
+      if (activeRequest.current === request) {
+        activeRequest.current = null;
+        setIsPending(false);
+      }
     }
   }
 

@@ -53,7 +53,8 @@ async function request<T>(
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
   if (options.body !== undefined) headers.set('Content-Type', 'application/json');
-  if (protectedRequest && apiToken) headers.set('Authorization', `Bearer ${apiToken}`);
+  const requestToken = protectedRequest ? apiToken : null;
+  if (requestToken) headers.set('Authorization', `Bearer ${requestToken}`);
 
   let response: Response;
   try {
@@ -75,7 +76,7 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    if (response.status === 401 && protectedRequest && apiToken) notifyUnauthorized();
+    if (response.status === 401 && requestToken && apiToken === requestToken) notifyUnauthorized();
     const envelope = payload as ErrorEnvelope | undefined;
     throw new ApiError(
       envelope?.error?.message || `FinTrack could not complete this request (${response.status}).`,
@@ -96,10 +97,8 @@ export const api = {
     return request('/api/auth/register', { method: 'POST', body: jsonBody(credentials) });
   },
 
-  async login(credentials: Credentials): Promise<AccessToken> {
-    const token = await request<AccessToken>('/api/auth/login', { method: 'POST', body: jsonBody(credentials) });
-    setApiToken(token.access_token);
-    return token;
+  login(credentials: Credentials): Promise<AccessToken> {
+    return request('/api/auth/login', { method: 'POST', body: jsonBody(credentials) });
   },
 
   getPortfolios(): Promise<Portfolio[]> {

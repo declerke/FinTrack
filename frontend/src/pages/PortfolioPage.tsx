@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { api } from '../api';
 import type { Portfolio, PortfolioSummary, Transaction } from '../types';
 import { formatDate } from '../format';
@@ -31,7 +31,6 @@ async function fetchPortfolioData(portfolioId: number): Promise<PortfolioData> {
 export function PortfolioPage() {
   const { id: routeId } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
   const portfolioId = Number(routeId);
   const isValidPortfolioId = Number.isSafeInteger(portfolioId) && portfolioId >= 1;
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -276,7 +275,6 @@ export function PortfolioPage() {
           />
         </section>
       </div>
-      <button className="visually-hidden" type="button" onClick={() => navigate('/portfolios')}>Back to portfolios</button>
     </main>
   );
 }

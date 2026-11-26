@@ -40,4 +40,32 @@ describe('API client', () => {
     expect(unauthorized).toHaveBeenCalledOnce();
     unsubscribe();
   });
+
+  it('keeps a replacement session when a request with the old token returns 401', async () => {
+    const originalToken = 'original-session-token';
+    const replacementToken = 'replacement-session-token';
+    setApiToken(originalToken);
+    const unauthorized = vi.fn();
+    const unsubscribe = onUnauthorized(unauthorized);
+    type FetchResponse = ReturnType<typeof response>;
+    type FetchRequest = (input: RequestInfo | URL, init?: RequestInit) => Promise<FetchResponse>;
+    let resolveRequest!: (fetchResponse: FetchResponse) => void;
+    const fetchRequest = vi.fn<FetchRequest>(() =>
+      new Promise<FetchResponse>((resolve) => { resolveRequest = resolve; }),
+    );
+    vi.stubGlobal('fetch', fetchRequest);
+
+    try {
+      const request = api.getPortfolios();
+      expect(new Headers(fetchRequest.mock.calls[0]?.[1]?.headers).get('Authorization')).toBe(`Bearer ${originalToken}`);
+      setApiToken(replacementToken);
+      resolveRequest(response(401));
+
+      await expect(request).rejects.toMatchObject({ status: 401 });
+      expect(getApiToken()).toBe(replacementToken);
+      expect(unauthorized).not.toHaveBeenCalled();
+    } finally {
+      unsubscribe();
+    }
+  });
 });

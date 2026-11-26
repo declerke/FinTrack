@@ -10,6 +10,8 @@ async function tabTo(page: Page, target: Locator) {
   for (let tabs = 0; tabs < 30; tabs += 1) {
     if (await target.evaluate((element) => document.activeElement === element)) return;
     await page.keyboard.press('Tab');
+    const focused = page.locator(':focus');
+    if (await focused.count()) await expect(focused).toBeInViewport();
   }
   await expect(target).toBeFocused();
 }

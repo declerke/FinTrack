@@ -53,16 +53,16 @@ Frontend versions are from `frontend/package-lock.json`; Python package versions
 
 ## 📊 Performance & Results
 
-- Integrated frontend candidate: **36 tests across 9 files** passed; ESLint and the production TypeScript/Vite build passed (35 modules; 297.39 kB JavaScript, 91.53 kB gzip; 20.75 kB CSS).
-- Portfolio detail regression tests prove an older save refresh cannot restore a deleted ledger row, a late delete cannot steal focus from another portfolio, a save completing after navigation cannot publish success in the new portfolio, and a failed refresh cannot announce refreshed totals. Route changes also clear stale pending state.
-- The starting release candidate passed **71 backend tests** against disposable PostgreSQL 16 on port 5433; its application URL was pinned to unreachable port 55439 after the database preflight. Ruff and the OpenAPI export check passed with inherited `PGHOSTADDR` pointing elsewhere and `PGPORT` set to reserved port 55432. These are historical results before this QA follow-up.
-- In the dark-mode Chromium run, the browser viewport was **375px** wide and its stable 15px scrollbar gutter left a **360px** document client width; the six new mobile captures are therefore 360px wide and match the rendered content. The separate earlier light-theme capture used a 390px browser window, yielding a 375px document client width and a 375px image. Both runs had no horizontal document overflow with 100-character portfolio and client names.
-- `docs/openapi.json` matches the FastAPI schema; the trade quantity and unit price use decimal-string inputs and a valid request example.
-- The [GitHub Actions workflow](.github/workflows/ci.yml) runs locked frontend and backend checks for pull requests and pushes to `main` and `qa/fintrack-release-verification`, including Ruff, OpenAPI export, `pytest -ra` against an isolated PostgreSQL service, frontend unit tests, fixture-backed Chromium regressions, lint and production build. CI sets `FINTRACK_REQUIRE_TEST_DATABASE=1`, so a missing PostgreSQL URL fails the job instead of silently skipping database coverage; the application URL is unreachable during integration tests.
-- Dark mode applies the system preference before React mounts and follows system changes until an explicit choice is made. A manual choice is stored across navigation and reload; the accessible keyboard-operable toggle appears on sign-in and authenticated pages. Real Chromium checks at desktop and a 375px browser viewport verified the header, brand, forms, native date input, allocation chart, transaction tables, disabled controls, validation errors and empty states. At that mobile viewport, Chromium reserved 15px for its scrollbar, leaving a 360px document client width; 100-character portfolio and client names wrap on list and detail pages, `document.scrollWidth` equals `document.clientWidth`, and the 700px/740px tables scroll within their 291px containers. Rendered RGB contrast checks for sampled body, table, chart, input, action, error and disabled-control text exceeded 4.5:1 in both themes.
-- Test database isolation rejects the application database before engine creation or DDL. The historical integration run used only disposable PostgreSQL on port 5433 and never the reserved preview port 55432.
-- On 25 Nov 2026, the complete README setup took **about 7 minutes** from the first documented step at 21:13 EAT to signing in and opening Retirement with its holdings visible at about 21:21 EAT. This run used Python 3.12.14, uv 0.12.9, Node 22.23.5, npm 11.17.0, Docker Desktop 29.7.2, Compose and PostgreSQL 16. The worktree, `.venv`, `node_modules`, application database and test database were fresh; npm/uv caches were warm, and the PostgreSQL 16 Alpine image had been pulled during an earlier setup retry. Compose provisioning, locked dependency installation, migration, seed, API and frontend startup, sign-in and opening Retirement were included. The measured run met the ten-minute goal under these warm-cache/image conditions; cold dependency caches and a cold image download remain unmeasured.
-- No load or performance benchmark has been run.
+- Current QA branch verification: **55 frontend tests across 9 files** and **4 Chromium browser journeys** passed. ESLint and the production TypeScript/Vite build passed (35 modules; 297.57 kB JavaScript, 91.59 kB gzip; 20.75 kB CSS). The frontend suite includes late login/register responses, an old-token 401, stale ledger refresh, cross-portfolio focus, failed refresh notices, and active-editor deletion.
+- Backend verification: **71 tests passed** against disposable PostgreSQL 16 on `127.0.0.1:55833/fintrack_test`; the application URL was pinned to unreachable `127.0.0.1:55839`. The direct guard regression passed and uses spies to prove an application-database collision is refused before engine creation or DDL. Ruff and the OpenAPI export check passed. No destructive test used reserved preview port 55432.
+- Four automated Chromium journeys passed: keyboard operation and final-trade focus, 375px light layout, 375px dark layout, and manually selected theme persistence. The keyboard journey stubs the native confirmation response; physical Enter/Escape behavior inside the browser's native dialog is still pending Ian's manual check.
+- Theme state tests cover system preference, system changes before an explicit choice, manual selection, and persistence across navigation and reload. Contrast was measured on representative production-preview text in both themes; all sampled pairs exceeded 4.5:1 (minimum sampled ratio 5.29:1 in light mode and 6.41:1 in dark mode).
+- Retained A8 measurements: the earlier dark browser run used a 375px viewport with a stable 15px scrollbar gutter, leaving a 360px document client width; the earlier light capture used a 390px browser window and a 375px document client width. Neither had horizontal overflow with 100-character portfolio and client names. In the new headless production-preview capture, both 375px light and dark list/detail layouts measured viewport/client/document/body widths of **375/375/375/375px** and had no horizontal overflow. The distinct browser scrollbar conditions are recorded; the older A8 measurements remain unchanged.
+- **Setup timing, 25 Nov:** the full README setup took about **7 minutes** from the first setup step to authenticated Retirement holdings. The worktree, `.venv`, `node_modules`, application database and test database were fresh; npm/uv caches were warm and PostgreSQL 16 Alpine had already been pulled.
+- **Setup timing, 26 Nov warm rerun after adding Compose `--wait`: 28.666 seconds.** The continuous timer began by copying `.env.example` and populating it from the private local configuration, then ended when an authenticated browser showed Retirement's SCOM holding. A fresh worktree, `.venv`, `node_modules`, and app/test databases were used with warm npm/uv caches and the pre-existing Docker image. Stages: environment setup 0.17s; Compose healthchecks 6.63s; `uv sync --locked` 1.25s; migration and seed 7.05s; API to OpenAPI 200 2.52s; `npm ci` 7.02s; Vite to HTTP 200 0.68s; browser login and holdings 3.26s. This verifies the healthcheck wait and full warm path; elapsed time can vary with local scheduling.
+- The earlier **10m10s warm result** on 26 Nov (03:02:22–03:12:32 EAT) remains recorded: it missed the ten-minute target by 10 seconds. That run also used fresh app/test databases and dependencies with warm npm/uv caches and a pre-pulled image. The improved documented healthcheck step was followed by the 28.666-second warm rerun above.
+- **Cold-dependency setup retest, 26 Nov:** **109.495 seconds** (07:44:48.979–07:46:38.474 EAT) from the first `.env` step through authenticated Retirement holdings, using separate empty npm and uv caches, a fresh worktree, `.venv`, `node_modules`, and databases, and pinned Node 22.23.5. Stages: `.env` 0.00s; Compose healthchecks 6.66s; `uv sync --locked` 3.46s; migration and seed 6.61s; API to OpenAPI 200 11.04s; `npm ci` 7.82s; Vite to HTTP 200 11.06s; browser login and holdings 2.16s. The PostgreSQL 16 Alpine image was already present (`sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d`, created 18 Nov); Playwright Chromium cache was shared and warm. This was a cold dependency-cache run, not a cold Docker-image or browser-cache run.
+- `docs/openapi.json` matches the FastAPI schema; the trade quantity and unit price are decimal-string inputs with a valid request example. No load or market-performance benchmark has been run.
 
 ## 📸 Application Screenshots
 
@@ -91,6 +91,26 @@ The screenshots show fictional local sample data from an isolated browser review
 **Dark mode at a 375px browser viewport (360px captured content after the scrollbar gutter).** Both 100-character names wrap, and the empty holdings and transaction states remain within the viewport.
 
 ![FinTrack dark mode with long names at 375 pixels](docs/screenshots/dark-long-name-detail-375.png)
+
+### QA branch mobile screenshots — 26 November 2026
+
+These local production-preview screenshots use fixture-only API responses with 100-character portfolio and client names. Both list and detail layouts are shown at a 375px browser viewport in each theme.
+
+**Light theme portfolio list (375 × 1290).**
+
+![FinTrack light theme portfolio list at a 375px viewport](docs/screenshots/qa-375-light-portfolios.png)
+
+**Light theme portfolio detail (375 × 2367).**
+
+![FinTrack light theme portfolio detail at a 375px viewport](docs/screenshots/qa-375-light-detail.png)
+
+**Dark theme portfolio list (375 × 1290).**
+
+![FinTrack dark theme portfolio list at a 375px viewport](docs/screenshots/qa-375-dark-portfolios.png)
+
+**Dark theme portfolio detail (375 × 2367).**
+
+![FinTrack dark theme portfolio detail at a 375px viewport](docs/screenshots/qa-375-dark-detail.png)
 
 ## 📈 Domain Coverage
 
@@ -155,8 +175,10 @@ The screenshots show fictional local sample data from an isolated browser review
 2. Start the application database and isolated test database in a dedicated Compose project. This example uses `fintrack-review-local`; choose another unique name if it already exists:
 
    ```powershell
-   docker compose --project-name fintrack-review-local up -d db test-db
+   docker compose --project-name fintrack-review-local up -d --wait db test-db
    ```
+
+   Compose waits for both PostgreSQL healthchecks before the migration step.
 
 3. Install backend dependencies, apply migrations, seed the fictional account, and start the API:
 
